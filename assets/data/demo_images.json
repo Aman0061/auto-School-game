@@ -1,0 +1,107 @@
+{
+  "traffic_signs": [
+    {
+      "id": "traffic_sign_1",
+      "name": "Дорожный знак 1",
+      "description": "Знак ограничения скорости",
+      "path": "assets/images/icons/traffic_sign_1.png"
+    },
+    {
+      "id": "traffic_sign_2", 
+      "name": "Дорожный знак 2",
+      "description": "Знак пешеходного перехода",
+      "path": "assets/images/icons/traffic_sign_2.png"
+    }
+  ],
+  "road_situations": [
+    {
+      "id": "road_situation_1",
+      "name": "Дорожная ситуация 1",
+      "description": "Перекресток с пешеходами",
+      "path": "assets/images/icons/road_situation_1.png"
+    },
+    {
+      "id": "road_situation_2",
+      "name": "Дорожная ситуация 2", 
+      "description": "Обгон на дороге",
+      "path": "assets/images/icons/road_situation_2.png"
+    }
+  ],
+  "pedestrian": [
+    {
+      "id": "pedestrian_crossing",
+      "name": "Пешеходный переход",
+      "description": "Зебра на дороге",
+      "path": "assets/images/icons/pedestrian_crossing.png"
+    }
+  ],
+  "schools": [
+    {
+      "id": "school_1",
+      "name": "Автошкола Эксперт",
+      "path": "assets/images/schools/school_1.jpg"
+    },
+    {
+      "id": "school_2",
+      "name": "Центр вождения Мастер",
+      "path": "assets/images/schools/school_2.jpg"
+    },
+    {
+      "id": "school_3",
+      "name": "Автошкола Старт",
+      "path": "assets/images/schools/school_3.jpg"
+    },
+    {
+      "id": "school_4",
+      "name": "Академия вождения Профи",
+      "path": "assets/images/schools/school_4.jpg"
+    },
+    {
+      "id": "school_5",
+      "name": "Автошкола Надежность",
+      "path": "assets/images/schools/school_5.jpg"
+    }
+  ],
+  "icons": [
+    {
+      "id": "rocket_icon",
+      "name": "Ракета для опыта",
+      "path": "assets/images/icons/rocket_icon.png"
+    },
+    {
+      "id": "target_icon",
+      "name": "Мишень для очков",
+      "path": "assets/images/icons/target_icon.png"
+    },
+    {
+      "id": "trophy_icon",
+      "name": "Трофей для достижений",
+      "path": "assets/images/icons/trophy_icon.png"
+    },
+    {
+      "id": "checklist_icon",
+      "name": "Чеклист для заданий",
+      "path": "assets/images/icons/checklist_icon.png"
+    },
+    {
+      "id": "share_icon",
+      "name": "Поделиться",
+      "path": "assets/images/icons/share_icon.png"
+    },
+    {
+      "id": "help_icon",
+      "name": "Помощь",
+      "path": "assets/images/icons/help_icon.png"
+    },
+    {
+      "id": "happy_icon",
+      "name": "Счастливая иконка",
+      "path": "assets/images/icons/happy_icon.png"
+    },
+    {
+      "id": "sad_icon",
+      "name": "Грустная иконка",
+      "path": "assets/images/icons/sad_icon.png"
+    }
+  ]
+}
