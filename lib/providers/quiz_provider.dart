@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../models/question.dart';
 import '../models/module.dart';
+import '../models/answer.dart';
 import '../services/image_service.dart';
 
 class QuizProvider extends ChangeNotifier {
@@ -330,14 +331,21 @@ class QuizProvider extends ChangeNotifier {
         imagePath = null;
       }
       
+      // Создаем ответы для вопроса
+      final options = _generateQuestionOptions(moduleId, i + 1);
+      final answers = options.asMap().entries.map((entry) {
+        return Answer(
+          id: entry.key + 1,
+          text: entry.value,
+          correct: entry.key == (i % 4),
+        );
+      }).toList();
+      
       questions.add(Question(
-        id: '${moduleId}_q${i + 1}',
+        id: i + 1,
         text: _generateQuestionText(moduleId, i + 1),
-        options: _generateQuestionOptions(moduleId, i + 1),
-        correctAnswerIndex: i % 4,
-        explanation: _generateExplanation(moduleId, i + 1),
-        imagePath: imagePath,
-        moduleId: moduleId,
+        answers: answers,
+        image: imagePath,
       ));
     }
     

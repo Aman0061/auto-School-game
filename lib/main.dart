@@ -4,6 +4,7 @@ import 'providers/auth_provider.dart';
 import 'providers/quiz_provider.dart';
 import 'providers/driving_school_provider.dart';
 import 'providers/rewards_provider.dart';
+import 'providers/ticket_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/main_screen.dart';
 
@@ -22,13 +23,14 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => QuizProvider()),
         ChangeNotifierProvider(create: (_) => DrivingSchoolProvider()),
         ChangeNotifierProvider(create: (_) => RewardsProvider()),
+        ChangeNotifierProvider(create: (_) => TicketProvider()),
       ],
       child: MaterialApp(
         title: 'Автошкола Квиз',
         theme: ThemeData(
           primarySwatch: Colors.blue,
           primaryColor: const Color(0xFF2196F3),
-          scaffoldBackgroundColor: const Color(0xFFF5F5F5),
+          scaffoldBackgroundColor: const Color.fromARGB(255, 255, 255, 255),
           appBarTheme: const AppBarTheme(
             backgroundColor: Color(0xFF2196F3),
             foregroundColor: Colors.white,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/quiz_provider.dart';
+import '../providers/ticket_provider.dart';
+import '../models/ticket.dart';
+import '../models/module.dart';
 import 'quiz_screen.dart';
 
 class TestsScreen extends StatefulWidget {
@@ -15,14 +17,14 @@ class _TestsScreenState extends State<TestsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<QuizProvider>(context, listen: false).loadModules();
+      Provider.of<TicketProvider>(context, listen: false).loadTickets();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FCF7),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       appBar: AppBar(
         title: const Text(
           'Тесты',
@@ -32,20 +34,21 @@ class _TestsScreenState extends State<TestsScreen> {
           ),
         ),
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFFF7FCF7),
+        foregroundColor: const Color(0xFF0D1C0D),
         elevation: 0,
-
       ),
-      body: Consumer<QuizProvider>(
-        builder: (context, quizProvider, child) {
-          if (quizProvider.isLoading) {
+      body: Consumer<TicketProvider>(
+        builder: (context, ticketProvider, child) {
+          if (ticketProvider.isLoading) {
             return const Center(
               child: CircularProgressIndicator(),
             );
           }
 
-          final modules = quizProvider.modules;
-          final completedModules = _getCompletedModulesCount(modules);
+          final tickets = ticketProvider.tickets;
+          final medicalTickets = ticketProvider.medicalTickets;
+          final allTickets = [...tickets, ...medicalTickets];
+          final completedTickets = ticketProvider.getCompletedTicketsCount();
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -54,7 +57,7 @@ class _TestsScreenState extends State<TestsScreen> {
               children: [
                 // Прогресс
                 Text(
-                  'Завершено $completedModules из ${modules.length}',
+                  'Завершено $completedTickets из ${allTickets.length}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -66,7 +69,7 @@ class _TestsScreenState extends State<TestsScreen> {
                 
                 // Прогресс бар
                 LinearProgressIndicator(
-                  value: completedModules / modules.length,
+                  value: completedTickets / allTickets.length,
                   backgroundColor: Colors.grey.shade200,
                   valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF019863)),
                   minHeight: 8,
@@ -91,17 +94,15 @@ class _TestsScreenState extends State<TestsScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 1,
+                    crossAxisCount: 2,
+                    childAspectRatio: 1.2,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                   ),
-                  itemCount: modules.length,
+                  itemCount: allTickets.length,
                   itemBuilder: (context, index) {
-                    final module = modules[index];
-                    final progress = _getModuleProgress(module.id);
-                    
-                    return _buildTicketCard(module, progress);
+                    final ticket = allTickets[index];
+                    return _buildTicketCard(ticket);
                   },
                 ),
               ],
@@ -112,22 +113,25 @@ class _TestsScreenState extends State<TestsScreen> {
     );
   }
 
-  Widget _buildTicketCard(module, int progress) {
-    final isCompleted = progress >= 80; // Считаем завершенным если 80% и больше
-    final isExam = module.isExam;
+  Widget _buildTicketCard(Ticket ticket) {
+    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+    final isCompleted = ticketProvider.isTicketCompleted(ticket.id);
+    final isFailed = ticketProvider.isTicketFailed(ticket.id);
     
     // Определяем цвет карточки
     Color cardColor;
     if (isCompleted) {
       cardColor = const Color(0xFF019863); // Зеленый для завершенных
-    } else if (isExam) {
-      cardColor = const Color(0xFFFAC638); // Желтый для экзамена
+    } else if (isFailed) {
+      cardColor = const Color(0xFFE74C3C); // Красный для проваленных
+    } else if (ticket.isMedical) {
+      cardColor = const Color(0xFFE74C3C); // Красный для медицинского
     } else {
       cardColor = const Color(0xFFFAC638); // Желтый для обычных билетов
     }
     
     return GestureDetector(
-      onTap: () => _startModule(module),
+      onTap: () => _startTicket(ticket),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -157,7 +161,7 @@ class _TestsScreenState extends State<TestsScreen> {
               ),
               child: Center(
                 child: Text(
-                  isExam ? 'Э' : module.title.split(' ').last,
+                  ticket.isMedical ? 'М' : ticket.title.split(' ').last,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -171,11 +175,23 @@ class _TestsScreenState extends State<TestsScreen> {
             
             // Название билета
             Text(
-              isExam ? 'Экзамен' : 'Билет ${module.title.split(' ').last}',
+              ticket.isMedical ? 'Медицинский' : 'Билет ${ticket.title.split(' ').last}',
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF0D1C0D),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: 4),
+            
+            // Количество вопросов
+            Text(
+              '${ticket.questionCount} вопросов',
+              style: const TextStyle(
+                fontSize: 10,
+                color: Colors.grey,
               ),
               textAlign: TextAlign.center,
             ),
@@ -185,31 +201,27 @@ class _TestsScreenState extends State<TestsScreen> {
     );
   }
 
-  void _startModule(module) async {
-    final quizProvider = Provider.of<QuizProvider>(context, listen: false);
-    await quizProvider.loadQuestionsForModule(module.id);
+  void _startTicket(Ticket ticket) async {
+    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+    
+    if (ticket.isMedical) {
+      ticketProvider.startMedicalTicket();
+    } else {
+      ticketProvider.startTicket(ticket.id);
+    }
     
     if (mounted) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => QuizScreen(module: module),
+          builder: (context) => QuizScreen(module: Module(
+            id: ticket.id,
+            title: ticket.title,
+            description: ticket.description,
+            questionCount: ticket.questionCount,
+            isExam: false,
+          )),
         ),
       );
     }
-  }
-
-  int _getCompletedModulesCount(List modules) {
-    int completed = 0;
-    for (final module in modules) {
-      if (_getModuleProgress(module.id) >= 80) {
-        completed++;
-      }
-    }
-    return completed;
-  }
-
-  int _getModuleProgress(String moduleId) {
-    final quizProvider = Provider.of<QuizProvider>(context, listen: false);
-    return quizProvider.getModuleProgress(moduleId);
   }
 }

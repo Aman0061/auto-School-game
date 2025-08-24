@@ -1,26 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/module.dart';
-import '../providers/quiz_provider.dart';
+import '../models/ticket.dart';
+import '../providers/ticket_provider.dart';
 import '../providers/rewards_provider.dart';
+import 'errors_screen.dart';
 
 class QuizResultScreen extends StatelessWidget {
   final Module module;
-  final QuizResult result;
+  final TicketResult result;
+  final Ticket ticket;
+  final List<int> userAnswers;
 
   const QuizResultScreen({
     super.key,
     required this.module,
     required this.result,
+    required this.ticket,
+    required this.userAnswers,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isPassed = result.percentage >= 70;
-    final isExam = module.isExam;
+    final wrongAnswers = result.totalQuestions - result.correctAnswers;
+    final isPassed = wrongAnswers <= 2; // Билет сдан если ошибок 2 или меньше
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       appBar: AppBar(
         title: const Text(
           'Результаты теста',
@@ -72,97 +78,61 @@ class QuizResultScreen extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            // Карточки результатов
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // Верхний ряд карточек
-                  Row(
-                    children: [
-                      // Верные ответы
-                      Expanded(
-                        child: _buildResultCard(
-                          title: 'Верные ответы',
-                          value: '${result.correctAnswers}',
-                          percentage: '+${result.percentage}%',
-                          color: const Color(0xFF019863),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Неверные ответы
-                      Expanded(
-                        child: _buildResultCard(
-                          title: 'Неверные ответы',
-                          value: '${result.totalQuestions - result.correctAnswers}',
-                          percentage: '-${100 - result.percentage}%',
-                          color: const Color(0xFFE74C3C),
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  // Время (пока статичное, можно добавить реальное время)
-                  _buildResultCard(
-                    title: 'Затраченное время',
-                    value: '9 мин',
-                    percentage: '-15%',
-                    color: const Color(0xFFFAC638),
-                    isFullWidth: true,
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Праздничная секция
+            // Результат сдачи билета
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
+              margin: const EdgeInsets.all(0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
               child: Column(
                 children: [
-                  // Иллюстрация
+                  // Иконка результата
                   Container(
-                    width: 120,
-                    height: 120,
+                    width: 80,
+                    height: 80,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(60),
+                      color: isPassed ? Colors.green.shade100 : Colors.red.shade100,
+                      shape: BoxShape.circle,
                     ),
-                    child: Image.asset(
-                      isPassed 
-                          ? 'assets/images/icons/happy_icon.png'
-                          : 'assets/images/icons/sad_icon.png',
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: isPassed ? Colors.green.shade100 : Colors.red.shade100,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            isPassed ? Icons.sentiment_satisfied : Icons.sentiment_dissatisfied,
-                            size: 60,
-                            color: isPassed ? Colors.green : Colors.red,
-                          ),
-                        );
-                      },
+                    child: Icon(
+                      isPassed ? Icons.celebration : Icons.cancel,
+                      size: 48,
+                      color: isPassed ? Colors.green : Colors.red,
                     ),
                   ),
                   
                   const SizedBox(height: 16),
                   
-                  // Сообщение
+                  // Текст результата
+                  Text(
+                    isPassed ? 'Билет сдан' : 'Билет не сдан',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: isPassed ? Colors.green : Colors.red,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Подробности
                   Text(
                     isPassed 
-                        ? 'Вы прошли тест быстрее на 15%'
-                        : 'Попробуйте еще раз',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0D1C0D),
+                        ? 'Поздравляем! Вы успешно сдали билет'
+                        : 'Попробуйте еще раз для улучшения результата',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade600,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -179,6 +149,7 @@ class QuizResultScreen extends StatelessWidget {
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
+                  margin: const EdgeInsets.all(0),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -373,59 +344,135 @@ class QuizResultScreen extends StatelessWidget {
             
             // Кнопки действий
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(0),
               child: Column(
                 children: [
                   // Кнопка "Посмотреть ошибки"
-                  SizedBox(
+                  Container(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // TODO: Показать ошибки
-                        Navigator.of(context).pop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2D88E2),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF019863), Color(0xFF00B894)],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                       ),
-                      child: const Text(
-                        'Посмотреть ошибки',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF019863).withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => ErrorsScreen(
+                                module: module,
+                                result: result,
+                                ticket: ticket,
+                                userAnswers: userAnswers,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.visibility,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              const Text(
+                                'Посмотреть ошибки',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                   
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   
                   // Кнопка "Билеты"
-                  SizedBox(
+                  Container(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2D88E2),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFAC638), Color(0xFFFFD93D)],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                       ),
-                      child: const Text(
-                        'Билеты',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFAC638).withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          Navigator.of(context).popUntil((route) => route.isFirst);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.quiz,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Билеты',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -439,53 +486,7 @@ class QuizResultScreen extends StatelessWidget {
     );
   }
 
-    Widget _buildResultCard({
-    required String title,
-    required String value,
-    required String percentage,
-    required Color color,
-    bool isFullWidth = false,
-  }) {
-    return Container(
-      width: isFullWidth ? double.infinity : null,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            percentage,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildStatRow(String label, String value, Color color, IconData icon) {
     return Row(
