@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/ticket_provider.dart';
 import '../providers/rewards_provider.dart';
 import '../models/module.dart';
+import '../services/cdn_service.dart';
 import 'quiz_result_screen.dart';
 
 class QuizScreen extends StatefulWidget {
@@ -120,31 +121,50 @@ class _QuizScreenState extends State<QuizScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        currentQuestion.imagePath!,
+                      child: CDNImage(
+                        imageName: currentQuestion.imagePath!,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey.shade200,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.image_not_supported,
-                                  size: 48,
-                                  color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(12),
+                        placeholder: Container(
+                          color: Colors.grey.shade200,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.image,
+                                size: 48,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Загрузка...',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Изображение не найдено',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                  ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        errorWidget: Container(
+                          color: Colors.grey.shade200,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.broken_image,
+                                size: 48,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Изображение не найдено',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
                                 ),
-                              ],
-                            ),
-                          );
-                        },
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),

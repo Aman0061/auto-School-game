@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../models/module.dart';
 import '../models/ticket.dart';
 import '../providers/ticket_provider.dart';
+import '../services/cdn_service.dart';
 
 class ErrorsScreen extends StatelessWidget {
   final Module module;
@@ -207,31 +207,50 @@ class ErrorsScreen extends StatelessWidget {
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: Image.asset(
-                                question.imagePath!,
+                              child: CDNImage(
+                                imageName: question.imagePath!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: Colors.grey.shade200,
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.image_not_supported,
-                                          size: 48,
-                                          color: Colors.grey.shade400,
+                                borderRadius: BorderRadius.circular(12),
+                                placeholder: Container(
+                                  color: Colors.grey.shade200,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.image,
+                                        size: 48,
+                                        color: Colors.grey.shade400,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Загрузка...',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
                                         ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Изображение не найдено',
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                          ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                errorWidget: Container(
+                                  color: Colors.grey.shade200,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.broken_image,
+                                        size: 48,
+                                        color: Colors.grey.shade400,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Изображение не найдено',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
                                         ),
-                                      ],
-                                    ),
-                                  );
-                                },
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
