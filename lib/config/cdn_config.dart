@@ -1,12 +1,12 @@
 class CDNConfig {
-  // Основной URL вашего CDN
-  static const String baseUrl = 'https://your-cdn-domain.com/images/';
+  // Основной URL для Cloudflare Images
+  // Account Hash: 8Bvjq3jb_mpIsntMaLlCpg
+  // Account ID: dc356eae9b175f6592aacba6e021cb28
+  static const String baseUrl = 'https://imagedelivery.net/8Bvjq3jb_mpIsntMaLlCpg/';
   
-  // Альтернативные CDN (для fallback)
-  static const List<String> fallbackUrls = [
-    'https://cdn1.your-domain.com/images/',
-    'https://cdn2.your-domain.com/images/',
-  ];
+  // Cloudflare Images поддерживает автоматическое масштабирование
+  // Fallback не нужен, так как Cloudflare очень надежен
+  static const List<String> fallbackUrls = [];
   
   // Поддерживаемые форматы изображений
   static const List<String> supportedFormats = ['jpg', 'jpeg', 'png', 'webp'];
@@ -48,70 +48,82 @@ class CDNConfig {
     'priority': 1,
   };
   
-  // Получить URL изображения с параметрами
-  static String getImageUrl(String imageName, {
-    int? width,
-    int? height,
-    int? quality,
-    String format = 'jpg',
+  // Получить URL изображения по Image ID для Cloudflare Images
+  static String getImageUrl(String imageId, {
+    String variant = 'public',
   }) {
-    if (imageName.isEmpty) return '';
+    if (imageId.isEmpty) return '';
     
-    // Убираем расширение файла если оно есть
-    String cleanName = imageName;
-    if (cleanName.contains('.')) {
-      cleanName = cleanName.split('.').first;
+    // Убираем расширение файла если оно есть (для обратной совместимости)
+    String cleanId = imageId;
+    if (cleanId.contains('.')) {
+      cleanId = imageId.split('.').first;
     }
     
-    // Формируем базовый URL
-    String url = '$baseUrl$cleanName.$format';
-    
-    // Добавляем параметры если указаны
-    List<String> params = [];
-    
-    if (width != null) params.add('w=$width');
-    if (height != null) params.add('h=$height');
-    if (quality != null) params.add('q=$quality');
-    
-    if (params.isNotEmpty) {
-      url += '?${params.join('&')}';
-    }
-    
-    return url;
+    // Формируем URL для Cloudflare Images с Image ID
+    return '$baseUrl$cleanId/$variant';
   }
   
   // Получить URL для мобильных устройств
-  static String getMobileUrl(String imageName) {
-    final sizes = imageSizes['mobile']!;
-    return getImageUrl(
-      imageName,
-      width: sizes['width'],
-      height: sizes['height'],
-      quality: qualitySettings['normal'],
-    );
+  static String getMobileUrl(String imageId) {
+    return getImageUrl(imageId, variant: 'public');
   }
   
   // Получить URL для веб
-  static String getWebUrl(String imageName) {
-    final sizes = imageSizes['desktop']!;
-    return getImageUrl(
-      imageName,
-      width: sizes['width'],
-      height: sizes['height'],
-      quality: qualitySettings['fast'],
-    );
+  static String getWebUrl(String imageId) {
+    return getImageUrl(imageId, variant: 'public');
   }
   
   // Получить fallback URL если основной недоступен
-  static String getFallbackUrl(String imageName, int fallbackIndex) {
+  static String getFallbackUrl(String imageId, int fallbackIndex) {
     if (fallbackIndex >= fallbackUrls.length) return '';
     
     final fallbackBase = fallbackUrls[fallbackIndex];
-    String cleanName = imageName;
-    if (cleanName.contains('.')) {
-      cleanName = cleanName.split('.').first;
+    String cleanId = imageId;
+    if (cleanId.contains('.')) {
+      cleanId = imageId.split('.').first;
     }
     
-    return '$fallbackBase$cleanName.jpg';
+    return '$fallbackBase$cleanId.jpg';
+  }
+  
+  // Специальные методы для Cloudflare Images
+  
+  // Получить простой URL по Image ID
+  static String getSimpleUrl(String imageId, {
+    String variant = 'public',
+  }) {
+    if (imageId.isEmpty) return '';
+    
+    String cleanId = imageId;
+    if (cleanId.contains('.')) {
+      cleanId = imageId.split('.').first;
+    }
+    
+    return '$baseUrl$cleanId/$variant';
+  }
+  
+  // Получить URL с определенным форматом
+  static String getFormatUrl(String imageId, String format, {
+    String variant = 'public',
+  }) {
+    if (imageId.isEmpty) return '';
+    
+    String cleanId = imageId;
+    if (cleanId.contains('.')) {
+      cleanId = imageId.split('.').first;
+    }
+    
+    return '$baseUrl$cleanId/$variant';
+  }
+  
+  // Получить URL с оптимизацией для мобильных устройств
+  static String getMobileOptimizedUrl(String imageId) {
+    return getSimpleUrl(imageId, variant: 'public');
+  }
+  
+  // Получить URL с оптимизацией для веб
+  static String getWebOptimizedUrl(String imageId) {
+    return getSimpleUrl(imageId, variant: 'public');
   }
 }

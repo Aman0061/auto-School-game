@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'answer.dart';
+import '../services/image_service.dart';
 
 part 'question.g.dart';
 
@@ -26,6 +27,14 @@ class Question {
   String? get imagePath => image;
   String? get explanation => null; // Пока без объяснений
   String get moduleId => 'ticket'; // Временное значение для совместимости
+
+  // Новые геттеры для работы с Cloudflare CDN
+  String get cloudflareImageUrl => ImageService().getQuestionImageUrl(image);
+  String get cloudflareImageUrlMobile => ImageService().getQuestionImageUrlMobile(image);
+  String get cloudflareImageUrlWeb => ImageService().getQuestionImageUrlWeb(image);
+  
+  // Проверка наличия изображения
+  bool get hasImage => image != null && image!.isNotEmpty;
 
   bool isCorrect(int selectedIndex) {
     return selectedIndex == correctAnswerIndex;

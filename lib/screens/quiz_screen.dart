@@ -122,7 +122,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: CDNImage(
-                        imageName: currentQuestion.imagePath!,
+                        imageId: currentQuestion.imagePath!,
                         fit: BoxFit.cover,
                         borderRadius: BorderRadius.circular(12),
                         placeholder: Container(

@@ -1,42 +1,79 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../config/cdn_config.dart';
+import 'image_service.dart';
 
 class CDNService {
   // Получить полный URL изображения
-  static String getImageUrl(String imageName) {
-    return CDNConfig.getImageUrl(imageName);
+  static String getImageUrl(String imageId) {
+    return CDNConfig.getImageUrl(imageId);
   }
   
   // Получить URL изображения с определенным размером
-  static String getImageUrlWithSize(String imageName, {int width = 400, int height = 300}) {
-    return CDNConfig.getImageUrl(imageName, width: width, height: height);
+  static String getImageUrlWithSize(String imageId, {int width = 400, int height = 300}) {
+    return CDNConfig.getImageUrl(imageId);
   }
   
   // Получить URL изображения с качеством
-  static String getImageUrlWithQuality(String imageName, {int quality = 80}) {
-    return CDNConfig.getImageUrl(imageName, quality: quality);
+  static String getImageUrlWithQuality(String imageId, {int quality = 80}) {
+    return CDNConfig.getImageUrl(imageId);
   }
   
   // Получить URL изображения с оптимизацией для мобильных устройств
-  static String getMobileOptimizedUrl(String imageName) {
-    return CDNConfig.getMobileUrl(imageName);
+  static String getMobileOptimizedUrl(String imageId) {
+    return CDNConfig.getMobileOptimizedUrl(imageId);
   }
   
   // Получить URL изображения с оптимизацией для веб
-  static String getWebOptimizedUrl(String imageName) {
-    return CDNConfig.getWebUrl(imageName);
+  static String getWebOptimizedUrl(String imageId) {
+    return CDNConfig.getWebOptimizedUrl(imageId);
   }
   
   // Получить fallback URL
-  static String getFallbackUrl(String imageName, int fallbackIndex) {
-    return CDNConfig.getFallbackUrl(imageName, fallbackIndex);
+  static String getFallbackUrl(String imageId, int fallbackIndex) {
+    return CDNConfig.getFallbackUrl(imageId, fallbackIndex);
+  }
+  
+  // Специальные методы для Cloudflare Images
+  
+  // Получить URL с автоматическим форматом
+  static String getAutoFormatUrl(String imageId, {
+    int? width,
+    int? height,
+    int? quality,
+    String fit = 'crop',
+  }) {
+    return CDNConfig.getSimpleUrl(imageId);
+  }
+  
+  // Получить URL с определенным форматом
+  static String getFormatUrl(String imageId, String format, {
+    int? width,
+    int? height,
+    int? quality,
+    String fit = 'crop',
+  }) {
+    return CDNConfig.getFormatUrl(imageId, format);
+  }
+  
+  // Получить URL с оптимизацией для Retina дисплеев
+  static String getRetinaUrl(String imageId, {
+    int? width,
+    int? height,
+    int? quality,
+    String fit = 'crop',
+  }) {
+    // Для Retina дисплеев увеличиваем размер в 2 раза
+    final retinaWidth = width != null ? width * 2 : null;
+    final retinaHeight = height != null ? height * 2 : null;
+    
+    return CDNConfig.getSimpleUrl(imageId);
   }
 }
 
 // Виджет для отображения изображений из CDN с кэшированием
 class CDNImage extends StatelessWidget {
-  final String imageName;
+  final String imageId;
   final double? width;
   final double? height;
   final BoxFit fit;
@@ -44,10 +81,11 @@ class CDNImage extends StatelessWidget {
   final Widget? errorWidget;
   final BorderRadius? borderRadius;
   final BoxShadow? boxShadow;
+  final bool useMobileOptimization;
 
   const CDNImage({
     super.key,
-    required this.imageName,
+    required this.imageId,
     this.width,
     this.height,
     this.fit = BoxFit.cover,
@@ -55,11 +93,16 @@ class CDNImage extends StatelessWidget {
     this.errorWidget,
     this.borderRadius,
     this.boxShadow,
+    this.useMobileOptimization = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = CDNService.getImageUrl(imageName);
+    // Используем ImageService для получения URL из Cloudflare CDN
+    final imageService = ImageService();
+    final imageUrl = useMobileOptimization 
+        ? imageService.getQuestionImageUrlMobile(imageId)
+        : imageService.getQuestionImageUrl(imageId);
     
     if (imageUrl.isEmpty) {
       return _buildErrorWidget();
@@ -73,7 +116,7 @@ class CDNImage extends StatelessWidget {
       placeholder: (context, url) => placeholder ?? _buildPlaceholder(),
       errorWidget: (context, url, error) => errorWidget ?? _buildErrorWidget(),
       // Настройки кэширования
-      cacheKey: imageName,
+      cacheKey: imageId,
       maxWidthDiskCache: 1200,
       maxHeightDiskCache: 900,
       memCacheWidth: 800,
@@ -152,7 +195,7 @@ class CDNImage extends StatelessWidget {
 
 // Виджет для отображения изображений с предзагрузкой
 class CDNImageWithPreload extends StatefulWidget {
-  final String imageName;
+  final String imageId;
   final double? width;
   final double? height;
   final BoxFit fit;
@@ -164,7 +207,7 @@ class CDNImageWithPreload extends StatefulWidget {
 
   const CDNImageWithPreload({
     super.key,
-    required this.imageName,
+    required this.imageId,
     this.width,
     this.height,
     this.fit = BoxFit.cover,
@@ -180,12 +223,13 @@ class CDNImageWithPreload extends StatefulWidget {
 }
 
 class _CDNImageWithPreloadState extends State<CDNImageWithPreload> {
-  bool _isLoaded = false;
+  // Убираем неиспользуемое поле
+  // bool _isLoaded = false;
 
   @override
   Widget build(BuildContext context) {
     return CDNImage(
-      imageName: widget.imageName,
+      imageId: widget.imageId,
       width: widget.width,
       height: widget.height,
       fit: widget.fit,

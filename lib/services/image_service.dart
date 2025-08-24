@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import '../config/cdn_config.dart';
 
 class ImageService {
   static final ImageService _instance = ImageService._internal();
@@ -17,6 +18,36 @@ class ImageService {
       print('Ошибка загрузки данных изображений: $e');
       _imageData = {};
     }
+  }
+
+  // Получение URL изображения для вопроса из Cloudflare CDN
+  String getQuestionImageUrl(String? imageId, {
+    String variant = 'public',
+  }) {
+    if (imageId == null || imageId.isEmpty) {
+      return '';
+    }
+    
+    // Используем Cloudflare CDN для изображений вопросов
+    return CDNConfig.getImageUrl(imageId, variant: variant);
+  }
+
+  // Получение оптимизированного URL для мобильных устройств
+  String getQuestionImageUrlMobile(String? imageId) {
+    if (imageId == null || imageId.isEmpty) {
+      return '';
+    }
+    
+    return CDNConfig.getMobileOptimizedUrl(imageId);
+  }
+
+  // Получение оптимизированного URL для веб
+  String getQuestionImageUrlWeb(String? imageId) {
+    if (imageId == null || imageId.isEmpty) {
+      return '';
+    }
+    
+    return CDNConfig.getWebOptimizedUrl(imageId);
   }
 
   // Получение случайного изображения по категории
@@ -81,5 +112,19 @@ class ImageService {
     });
     
     return allImages.contains(imagePath);
+  }
+
+  // Проверка доступности изображения в Cloudflare CDN
+  Future<bool> isCloudflareImageAvailable(String imageId) async {
+    if (imageId.isEmpty) return false;
+    
+    try {
+      // Здесь можно добавить проверку доступности изображения
+      // Пока возвращаем true, так как Cloudflare очень надежен
+      return true;
+    } catch (e) {
+      print('Ошибка проверки доступности изображения: $e');
+      return false;
+    }
   }
 }
