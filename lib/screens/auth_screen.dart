@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'main_screen.dart';
+import 'registration_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -32,15 +33,15 @@ class _AuthScreenState extends State<AuthScreen> {
       
       bool success;
       if (_isLogin) {
-        success = await authProvider.login(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+        // Для входа используем телефон (email как телефон для демо)
+        success = await authProvider.loginByPhone(_emailController.text.trim());
       } else {
         success = await authProvider.register(
           email: _emailController.text.trim(),
           password: _passwordController.text,
           name: _nameController.text.trim(),
+          phone: '+996700466412', // Временный номер для демо
+          userType: 'seeker', // Временный тип для демо
         );
       }
 
@@ -117,20 +118,20 @@ class _AuthScreenState extends State<AuthScreen> {
                   const SizedBox(height: 16),
                 ],
                 
-                // Поле email
+                // Поле email/телефона
                 TextFormField(
                   controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email),
-                    border: OutlineInputBorder(),
+                  keyboardType: _isLogin ? TextInputType.phone : TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: _isLogin ? 'Номер телефона' : 'Email',
+                    prefixIcon: Icon(_isLogin ? Icons.phone : Icons.email),
+                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Пожалуйста, введите email';
+                      return _isLogin ? 'Пожалуйста, введите номер телефона' : 'Пожалуйста, введите email';
                     }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    if (!_isLogin && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
                       return 'Пожалуйста, введите корректный email';
                     }
                     return null;
@@ -221,30 +222,61 @@ class _AuthScreenState extends State<AuthScreen> {
                 const SizedBox(height: 24),
                 
                 // Переключение между входом и регистрацией
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _isLogin ? 'Нет аккаунта?' : 'Уже есть аккаунт?',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _isLogin = !_isLogin;
-                        });
-                        Provider.of<AuthProvider>(context, listen: false).clearError();
-                      },
-                      child: Text(
-                        _isLogin ? 'Зарегистрироваться' : 'Войти',
-                        style: const TextStyle(
-                          color: Color(0xFF2196F3),
-                          fontWeight: FontWeight.bold,
+                if (_isLogin) ...[
+                  // Кнопка для перехода к новому экрану регистрации
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const RegistrationScreen(),
                         ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF019863),
+                      side: const BorderSide(color: Color(0xFF019863)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                  ],
-                ),
+                    child: const Text(
+                      'Зарегистрироваться',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ] else ...[
+                  // Обычное переключение для режима регистрации
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Уже есть аккаунт?',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _isLogin = true;
+                          });
+                          Provider.of<AuthProvider>(context, listen: false).clearError();
+                        },
+                        child: const Text(
+                          'Войти',
+                          style: TextStyle(
+                            color: Color(0xFF2196F3),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

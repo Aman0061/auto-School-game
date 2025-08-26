@@ -19,15 +19,27 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuthStatus() async {
-    // Временно убираем авторизацию
     await Future.delayed(const Duration(seconds: 2));
     
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const MainScreen(),
-        ),
-      );
+      // Проверяем статус авторизации
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      
+      if (authProvider.isAuthenticated) {
+        // Если пользователь авторизован, переходим к главному экрану
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const MainScreen(),
+          ),
+        );
+      } else {
+        // Если не авторизован, показываем экран авторизации
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const AuthScreen(),
+          ),
+        );
+      }
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 import '../models/user.dart';
+import '../services/user_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   User? _currentUser;
@@ -20,33 +21,53 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
     required String name,
+    required String phone,
+    required String userType,
   }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // Здесь будет API вызов для регистрации
-      // Пока используем локальную логику
-      await Future.delayed(const Duration(seconds: 1)); // имитация API
-
-      final user = User(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        email: email,
+      // Вызываем API для регистрации
+      final result = await UserService.registerUser(
         name: name,
-        createdAt: DateTime.now(),
-        moduleProgress: {},
+        phone: phone,
+        userType: userType,
+        email: email,
+        password: password,
       );
 
-      _currentUser = user;
-      
-      // Сохраняем токен и данные пользователя
-      await _secureStorage.write(key: 'auth_token', value: 'dummy_token');
-      await _saveUserData(user);
+      if (result['success'] == true) {
+        final user = result['user'] as User;
+        _currentUser = user;
+        
+        // Сохраняем токен и данные пользователя
+        await _secureStorage.write(key: 'auth_token', value: 'user_token_${user.id}');
+        await _saveUserData(user);
 
-      _isLoading = false;
-      notifyListeners();
-      return true;
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        // Если пользователь уже существует, авторизуем его
+        if (result['user'] != null) {
+          final existingUser = result['user'] as User;
+          _currentUser = existingUser;
+          
+          await _secureStorage.write(key: 'auth_token', value: 'user_token_${existingUser.id}');
+          await _saveUserData(existingUser);
+
+          _isLoading = false;
+          notifyListeners();
+          return true;
+        }
+        
+        _error = result['error'] ?? 'Ошибка регистрации';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
     } catch (e) {
       _error = 'Ошибка регистрации: ${e.toString()}';
       _isLoading = false;
@@ -55,42 +76,61 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Вход пользователя
-  Future<bool> login({
-    required String email,
-    required String password,
-  }) async {
+  // Вход пользователя по телефону
+  Future<bool> loginByPhone(String phone) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // Здесь будет API вызов для входа
-      await Future.delayed(const Duration(seconds: 1)); // имитация API
+      // Вызываем API для входа по телефону
+      final user = await UserService.loginByPhone(phone);
 
-      // Для демо создаем пользователя
-      final user = User(
-        id: 'demo_user',
-        email: email,
-        name: 'Демо Пользователь',
-        createdAt: DateTime.now(),
-        moduleProgress: {'module_1': 0, 'module_2': 0, 'module_3': 0},
-      );
+      if (user != null) {
+        _currentUser = user;
+        
+        await _secureStorage.write(key: 'auth_token', value: 'user_token_${user.id}');
+        await _saveUserData(user);
 
-      _currentUser = user;
-      
-      await _secureStorage.write(key: 'auth_token', value: 'dummy_token');
-      await _saveUserData(user);
-
-      _isLoading = false;
-      notifyListeners();
-      return true;
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _error = 'Пользователь с таким номером телефона не найден';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
     } catch (e) {
       _error = 'Ошибка входа: ${e.toString()}';
       _isLoading = false;
       notifyListeners();
       return false;
     }
+  }
+
+  // Вход пользователя (для обратной совместимости)
+  Future<bool> login({
+    required String email,
+    required String password,
+  }) async {
+    // Для демо создаем пользователя
+    final user = User(
+      id: 'demo_user',
+      email: email,
+      name: 'Демо Пользователь',
+      phone: '+996700466412',
+      userType: 'seeker',
+      createdAt: DateTime.now(),
+      moduleProgress: {'module_1': 0, 'module_2': 0, 'module_3': 0},
+    );
+
+    _currentUser = user;
+    
+    await _secureStorage.write(key: 'auth_token', value: 'dummy_token');
+    await _saveUserData(user);
+
+    return true;
   }
 
   // Выход пользователя
@@ -120,6 +160,42 @@ class AuthProvider extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  // Обновление профиля пользователя
+  Future<bool> updateProfile(User updatedUser) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      print('AuthProvider: Начинаем обновление профиля для пользователя ${updatedUser.id}');
+      
+      // Вызываем API для обновления профиля
+      final success = await UserService.updateUser(updatedUser);
+
+      if (success) {
+        print('AuthProvider: Профиль успешно обновлен в базе данных');
+        _currentUser = updatedUser;
+        await _saveUserData(updatedUser);
+        
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        print('AuthProvider: Не удалось обновить профиль в базе данных');
+        _error = 'Не удалось обновить профиль в базе данных';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      print('AuthProvider: Ошибка обновления профиля: $e');
+      _error = 'Ошибка обновления профиля: ${e.toString()}';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   // Обновление прогресса модуля

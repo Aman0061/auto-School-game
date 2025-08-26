@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/quiz_provider.dart';
 import '../providers/driving_school_provider.dart';
 import '../providers/rewards_provider.dart';
+import '../providers/auth_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -52,34 +53,38 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildUserProfileSection() {
-    return Row(
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        final user = authProvider.currentUser;
+        final displayName = (user != null && user.name.isNotEmpty) ? user.name : 'Гость';
+        final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'G';
+
+        return Row(
           children: [
             // Аватар
             CircleAvatar(
               radius: 26,
               backgroundColor: const Color(0xFF019863),
-              child: const Text(
-                'А',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              child: Text(
+                initial,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
             const SizedBox(width: 12),
-            // Имя и автошкола
+            // Имя пользователя
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Муканбет уулу Аман',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0D1C0D)),
-                ),
-                const Text(
-                  'Автошкола BCD',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF019863)),
+                Text(
+                  displayName,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0D1C0D)),
                 ),
               ],
             ),
           ],
         );
+      },
+    );
   }
 
   Widget _buildMetricsRow() {

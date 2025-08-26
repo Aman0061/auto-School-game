@@ -41,6 +41,9 @@ dependencies:
   json_annotation: ^4.9.0
   flutter_svg: ^2.0.9
   cached_network_image: ^3.3.0
+  supabase_flutter: ^2.3.4
+  url_launcher: ^6.2.4
+  share_plus: ^7.2.1
 
 dev_dependencies:
   flutter_test:

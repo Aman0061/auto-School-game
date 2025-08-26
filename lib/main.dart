@@ -6,7 +6,6 @@ import 'providers/driving_school_provider.dart';
 import 'providers/rewards_provider.dart';
 import 'providers/ticket_provider.dart';
 import 'screens/splash_screen.dart';
-import 'screens/main_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -28,17 +27,17 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Автошкола Квиз',
         theme: ThemeData(
-          primarySwatch: Colors.blue,
-          primaryColor: const Color(0xFF2196F3),
-          scaffoldBackgroundColor: const Color.fromARGB(255, 255, 255, 255),
+          primarySwatch: Colors.green,
+          primaryColor: const Color(0xFF019863),
+          scaffoldBackgroundColor: const Color(0xFFF5F5F5),
           appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF2196F3),
-            foregroundColor: Colors.white,
+            backgroundColor: Colors.white,
+            foregroundColor: Color(0xFF0D1C0D),
             elevation: 0,
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2196F3),
+              backgroundColor: const Color(0xFF019863),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(

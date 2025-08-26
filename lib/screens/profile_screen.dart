@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'auth_screen.dart';
+import 'edit_profile_screen.dart';
+import 'about_app_screen.dart';
+import 'help_support_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -8,9 +12,14 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Профиль'),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0D1C0D),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -285,18 +294,10 @@ class ProfileScreen extends StatelessWidget {
                         'Редактировать профиль',
                         Icons.edit,
                         () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Редактирование профиля')),
-                          );
-                        },
-                      ),
-                      
-                      _buildActionTile(
-                        'Настройки уведомлений',
-                        Icons.notifications,
-                        () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Настройки уведомлений')),
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const EditProfileScreen(),
+                            ),
                           );
                         },
                       ),
@@ -305,8 +306,10 @@ class ProfileScreen extends StatelessWidget {
                         'Помощь и поддержка',
                         Icons.help,
                         () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Помощь и поддержка')),
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const HelpSupportScreen(),
+                            ),
                           );
                         },
                       ),
@@ -315,8 +318,10 @@ class ProfileScreen extends StatelessWidget {
                         'О приложении',
                         Icons.info,
                         () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('О приложении')),
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const AboutAppScreen(),
+                            ),
                           );
                         },
                       ),
@@ -329,7 +334,18 @@ class ProfileScreen extends StatelessWidget {
                           onPressed: () async {
                             await authProvider.logout();
                             if (context.mounted) {
-                              Navigator.of(context).pushReplacementNamed('/auth');
+                              // Показываем уведомление об успешном выходе
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Вы успешно вышли из аккаунта'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(builder: (context) => const AuthScreen()),
+                                (route) => false,
+                              );
                             }
                           },
                           style: ElevatedButton.styleFrom(

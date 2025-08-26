@@ -209,7 +209,7 @@ class ErrorsScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                               child: CDNImage(
                                 imageId: question.imagePath!,
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
                                 borderRadius: BorderRadius.circular(12),
                                 placeholder: Container(
                                   color: Colors.grey.shade200,
