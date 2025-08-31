@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 import 'package:provider/provider.dart';
-import '../providers/driving_school_provider.dart';
 import '../models/driving_school.dart';
+import '../providers/driving_school_provider.dart';
 import 'driving_school_detail_screen.dart';
 
 class DrivingSchoolsScreen extends StatefulWidget {
@@ -14,10 +15,9 @@ class DrivingSchoolsScreen extends StatefulWidget {
 
 class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
   final TextEditingController _searchController = TextEditingController();
-  RangeValues _priceRange = const RangeValues(0, 50000);
-  double _minRating = 0.0;
-  String _selectedRegion = 'Все регионы';
-  List<String> _selectedCategories = [];
+  Timer? _debounceTimer;
+  String _searchQuery = '';
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -30,16 +30,26 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    // Отменяем предыдущий таймер
+    _debounceTimer?.cancel();
+    
+    // Устанавливаем новый таймер на 300ms для дебаунса
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      setState(() {
+        _searchQuery = value;
+      });
+    });
   }
 
   void _clearAllFilters() {
     setState(() {
       _searchController.clear();
-      _selectedRegion = 'Все регионы';
-      _selectedCategories.clear();
-      _priceRange = const RangeValues(0, 50000);
-      _minRating = 0.0;
+      _searchQuery = '';
     });
   }
 
@@ -74,7 +84,9 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
                           icon: const Icon(Icons.close, color: Color(0xFF019863)),
                           onPressed: () {
                             _searchController.clear();
-                            setState(() {});
+                            setState(() {
+                              _searchQuery = '';
+                            });
                           },
                         )
                       : null,
@@ -98,9 +110,7 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
                   fontSize: 16,
                   color: Colors.black,
                 ),
-                onChanged: (value) {
-                  setState(() {});
-                },
+                onChanged: _onSearchChanged,
               ),
             ),
             const SizedBox(width: 12),
@@ -129,33 +139,135 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
         builder: (context, provider, child) {
           if (provider.isLoading) {
             return const Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF019863)),
+              ),
             );
           }
 
-          List<DrivingSchool> filteredSchools = _getFilteredSchools(provider.schools);
+          final filteredSchools = _getFilteredSchools(provider.schools);
 
-          return Column(
-            children: [
-              // Фильтры под поиском
-              _buildFilterButtons(),
-              
-              // Список автошкол
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filteredSchools.length,
-                  itemBuilder: (context, index) {
-                    final school = filteredSchools[index];
-                    return _buildSchoolCard(school);
-                  },
-                ),
-              ),
-            ],
+          return RefreshIndicator(
+            onRefresh: () async {
+              // Обновляем данные при свайпе вниз
+              await Provider.of<DrivingSchoolProvider>(context, listen: false).loadDrivingSchools();
+            },
+            color: const Color(0xFF019863),
+            backgroundColor: Colors.white,
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16),
+              itemCount: filteredSchools.length + (provider.hasMoreData && _searchQuery.isEmpty ? 1 : 0),
+              itemBuilder: (context, index) {
+                // Если это последний элемент и есть еще данные, показываем кнопку "Загрузить еще"
+                if (index == filteredSchools.length && provider.hasMoreData && _searchQuery.isEmpty) {
+                  return _buildLoadMoreButton(context, provider);
+                }
+                
+                final school = filteredSchools[index];
+                return _buildSchoolCard(school);
+              },
+            ),
           );
         },
       ),
     );
+  }
+
+  Widget _buildLoadMoreButton(BuildContext context, DrivingSchoolProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+      child: Center(
+        child: provider.isLoading 
+          ? const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF019863)),
+            )
+          : ElevatedButton(
+              onPressed: () async {
+                // Запоминаем текущую позицию прокрутки
+                final currentPosition = _scrollController.position.pixels;
+                
+                // Загружаем дополнительные автошколы
+                await Provider.of<DrivingSchoolProvider>(context, listen: false).loadMoreDrivingSchools();
+                
+                // После загрузки прокручиваем к новым данным
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_scrollController.hasClients) {
+                    // Прокручиваем к позиции, где были загружены новые данные
+                    final newPosition = currentPosition + 100; // Небольшой отступ
+                    _scrollController.animateTo(
+                      newPosition,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  }
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                backgroundColor: const Color(0xFF019863),
+                foregroundColor: Colors.white,
+                elevation: 2,
+                shadowColor: const Color(0xFF019863).withOpacity(0.3),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.expand_more, size: 20),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Загрузить еще',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+      ),
+    );
+  }
+
+  List<DrivingSchool> _getFilteredSchools(List<DrivingSchool> schools) {
+    // Фильтруем автошколы только по поиску
+    if (_searchQuery.isEmpty) {
+      return schools;
+    }
+    
+    final query = _searchQuery.toLowerCase().trim();
+    final filtered = schools.where((school) {
+      return school.name.toLowerCase().contains(query) ||
+             school.city.toLowerCase().contains(query) ||
+             school.address.toLowerCase().contains(query);
+    }).toList();
+    
+    // Дополнительная проверка на дубликаты
+    final uniqueFiltered = <String, DrivingSchool>{};
+    for (final school in filtered) {
+      if (!uniqueFiltered.containsKey(school.id)) {
+        uniqueFiltered[school.id] = school;
+      } else {
+        print('ДУБЛИКАТ В ПОИСКЕ: ID: ${school.id}, название: ${school.name}');
+      }
+    }
+    
+    final result = uniqueFiltered.values.toList();
+    
+    // Сортируем: оплаченные в топе
+    result.sort((a, b) {
+      if (a.payed && !b.payed) return -1;
+      if (!a.payed && b.payed) return 1;
+      return 0;
+    });
+    
+    print('Поиск: "$query" - найдено ${result.length} автошкол');
+    print('Результаты поиска: ${result.map((s) => '${s.name} (ID: ${s.id})').toList()}');
+    
+    return result;
   }
 
   Widget _buildSchoolCard(DrivingSchool school) {
@@ -219,11 +331,28 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
                       color: const Color(0xFFF5E6D3),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Image.asset(
-                        'assets/images/icons/school_logo.png',
-                        fit: BoxFit.contain,
+                    child: const Icon(
+                      Icons.directions_car,
+                      color: Color(0xFF019863),
+                      size: 24,
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // Информация об автошколе
+              Row(
+                children: [
+                  Icon(Icons.location_on, color: Colors.grey.shade600, size: 16),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '${school.city}, ${school.address}',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
                       ),
                     ),
                   ),
@@ -232,861 +361,89 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
               
               const SizedBox(height: 8),
               
-              // Адрес
-              Text(
-                '${school.city}, ${school.address}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              
-              const SizedBox(height: 4),
-              
-              // Цена
-              Text(
-                'От ${school.priceFrom.toStringAsFixed(0)} сом',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
+              Row(
+                children: [
+                  Icon(Icons.phone, color: Colors.grey.shade600, size: 16),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      school.phone,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               
               const SizedBox(height: 8),
               
-              // Рейтинг со звездами
-              if (school.rating != null) ...[
-                Row(
-                  children: [
-                    Row(
-                      children: List.generate(5, (index) {
-                        final rating = school.rating ?? 0;
-                        return Icon(
-                          Icons.star,
-                          size: 16,
-                          color: index < rating.floor() ? const Color(0xFFFAC638) : Colors.grey.shade300,
-                        );
-                      }),
+              Row(
+                children: [
+                  Icon(Icons.category, color: Colors.grey.shade600, size: 16),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      school.categories.join(', '),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
                     ),
-                    const SizedBox(width: 8),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // Цена и рейтинг
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF019863).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'от ${school.priceFrom} сом',
+                      style: const TextStyle(
+                        color: Color(0xFF019863),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  
+                  const Spacer(),
+                  
+                  if (school.rating != null) ...[
+                    Icon(Icons.star, color: Colors.amber, size: 16),
+                    const SizedBox(width: 4),
                     Text(
                       school.rating!.toStringAsFixed(1),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '(${school.reviewsCount})',
+                      style: TextStyle(
                         color: Colors.grey.shade600,
+                        fontSize: 12,
                       ),
                     ),
                   ],
-                ),
-              ],
-              
-              const SizedBox(height: 16),
-              
-              // Кнопка "Позвонить" только для платных автошкол
-              if (school.isPromoted) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => _callSchool(school),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF019863),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.phone, size: 18),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Позвонить',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ],
           ),
         ),
       ),
     );
   }
-
-  Widget _buildFilterButtons() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            // Фильтр "Регион"
-            _buildFilterButton(
-              text: _selectedRegion,
-              onTap: () => _showRegionDialog(),
-            ),
-            const SizedBox(width: 12),
-            
-            // Фильтр "Категории"
-            _buildFilterButton(
-              text: _selectedCategories.isEmpty 
-                  ? 'Все категории' 
-                  : _selectedCategories.length == 1 
-                      ? _selectedCategories.first 
-                      : '${_selectedCategories.length} категории',
-              onTap: () => _showCategoryDialog(),
-            ),
-            const SizedBox(width: 12),
-            
-            // Фильтр "Цена"
-            _buildFilterButton(
-              text: 'Цена: ${_priceRange.start.round()}-${_priceRange.end.round()} сом',
-              onTap: () => _showPriceDialog(),
-            ),
-            const SizedBox(width: 12),
-            
-            // Фильтр "Рейтинг"
-            _buildFilterButton(
-              text: _minRating == 0.0 
-                  ? 'Любой рейтинг'
-                  : _minRating == 4.9 
-                      ? 'Лучшее'
-                      : _minRating == 4.5 
-                          ? 'Превосходно'
-                          : _minRating == 4.0 
-                              ? 'Хорошо'
-                              : _minRating == 3.5 
-                                  ? 'Достаточно хорошо'
-                                  : 'Неплохо',
-              onTap: () => _showRatingDialog(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterButton({required String text, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              text,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF0D1C0D),
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(
-              Icons.keyboard_arrow_down,
-              size: 16,
-              color: Color(0xFF019863),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  List<DrivingSchool> _getFilteredSchools(List<DrivingSchool> schools) {
-    // Сначала фильтруем автошколы
-    List<DrivingSchool> filteredSchools = schools.where((school) {
-      // Фильтр по названию
-      if (_searchController.text.isNotEmpty) {
-        if (!school.name.toLowerCase().contains(_searchController.text.toLowerCase())) {
-          return false;
-        }
-      }
-      
-      // Фильтр по цене
-      if (school.priceFrom < _priceRange.start || school.priceFrom > _priceRange.end) {
-        return false;
-      }
-      
-      // Фильтр по рейтингу
-      if ((school.rating ?? 0) < _minRating) {
-        return false;
-      }
-      
-      return true;
-    }).toList();
-    
-    // Затем сортируем: автошколы с короной в начало, остальные по рейтингу
-    filteredSchools.sort((a, b) {
-      // Сначала сравниваем по наличию короны (продвигаемые автошколы)
-      if (a.isPromoted && !b.isPromoted) return -1;
-      if (!a.isPromoted && b.isPromoted) return 1;
-      
-      // Если обе с короной или обе без короны, сортируем по рейтингу (по убыванию)
-      double ratingA = a.rating ?? 0.0;
-      double ratingB = b.rating ?? 0.0;
-      return ratingB.compareTo(ratingA);
-    });
-    
-    return filteredSchools;
-  }
-
-  void _callSchool(DrivingSchool school) {
-    // Здесь можно добавить функционал звонка
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Звонок в ${school.name}'),
-        backgroundColor: const Color(0xFF019863),
-      ),
-    );
-  }
-
-  void _showRegionDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF019863).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.location_on, color: Color(0xFF019863)),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Выберите регион',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF0D1C0D),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Content
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                children: [
-                  'Все регионы',
-                  'Бишкек',
-                  'Ош',
-                  'Чуйская область',
-                  'Иссык-Кульская область',
-                  'Нарынская область',
-                  'Таласская область',
-                  'Джалал-Абадская область',
-                  'Баткенская область',
-                ].map((region) => InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedRegion = region;
-                    });
-                    Navigator.pop(context);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                    margin: const EdgeInsets.only(bottom: 4),
-                    decoration: BoxDecoration(
-                      color: _selectedRegion == region 
-                          ? const Color(0xFF019863).withOpacity(0.1)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            region,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: _selectedRegion == region 
-                                  ? FontWeight.w600 
-                                  : FontWeight.w400,
-                              color: _selectedRegion == region 
-                                  ? const Color(0xFF019863)
-                                  : const Color(0xFF0D1C0D),
-                            ),
-                          ),
-                        ),
-                        if (_selectedRegion == region)
-                          const Icon(
-                            Icons.check,
-                            color: Color(0xFF019863),
-                            size: 20,
-                          ),
-                      ],
-                    ),
-                  ),
-                )).toList(),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-
-  }
-
-  void _showCategoryDialog() {
-    List<String> tempSelectedCategories = List.from(_selectedCategories);
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF019863).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.category, color: Color(0xFF019863)),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Выберите категории',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF0D1C0D),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Content
-            Flexible(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      'Можно выбрать несколько категорий',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Flexible(
-                    child: ListView(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      children: [
-                        'Категория A',
-                        'Категория B',
-                        'Категория C',
-                        'Категория D',
-                        'Категория E',
-                        'Категория B+E',
-                        'Категория C+E',
-                        'Категория D+E',
-                      ].map((category) => InkWell(
-                        onTap: () {
-                          setModalState(() {
-                            if (tempSelectedCategories.contains(category)) {
-                              tempSelectedCategories.remove(category);
-                            } else {
-                              tempSelectedCategories.add(category);
-                            }
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                          margin: const EdgeInsets.only(bottom: 4),
-                          decoration: BoxDecoration(
-                            color: tempSelectedCategories.contains(category)
-                                ? const Color(0xFF019863).withOpacity(0.1)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Checkbox(
-                                value: tempSelectedCategories.contains(category),
-                                onChanged: (value) {
-                                  setModalState(() {
-                                    if (value == true) {
-                                      tempSelectedCategories.add(category);
-                                    } else {
-                                      tempSelectedCategories.remove(category);
-                                    }
-                                  });
-                                },
-                                activeColor: const Color(0xFF019863),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  category,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: tempSelectedCategories.contains(category)
-                                        ? FontWeight.w600
-                                        : FontWeight.w400,
-                                    color: tempSelectedCategories.contains(category)
-                                        ? const Color(0xFF019863)
-                                        : const Color(0xFF0D1C0D),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Actions
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        'Отмена',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _selectedCategories = List.from(tempSelectedCategories);
-                        });
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF019863),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('Готово'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        ),
-      ),
-    );
-
-  }
-
-  void _showPriceDialog() {
-    TextEditingController fromController = TextEditingController(
-      text: _priceRange.start.round().toString(),
-    );
-    TextEditingController toController = TextEditingController(
-      text: _priceRange.end.round().toString(),
-    );
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF019863).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.attach_money, color: Color(0xFF019863)),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Диапазон цен',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF0D1C0D),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Content
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Укажите диапазон цен в сомах',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'От',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF0D1C0D),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: fromController,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                hintText: '0',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(color: Colors.grey.shade300),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(color: Colors.grey.shade300),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(color: Color(0xFF019863)),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'До',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF0D1C0D),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: toController,
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                hintText: '50000',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(color: Colors.grey.shade300),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: BorderSide(color: Colors.grey.shade300),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(color: Color(0xFF019863)),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // Actions
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        'Отмена',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final from = int.tryParse(fromController.text) ?? 0;
-                        final to = int.tryParse(toController.text) ?? 50000;
-                        setState(() {
-                          _priceRange = RangeValues(from.toDouble(), to.toDouble());
-                        });
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF019863),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('Готово'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        ),
-      ),
-    );
-  }
-
-  void _showRatingDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF019863).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.star, color: Color(0xFF019863)),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Минимальный рейтинг',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF0D1C0D),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Content
-            Flexible(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      'Выберите минимальный рейтинг',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Flexible(
-                    child: ListView(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      children: [
-                        {'name': 'Лучшее - 4.9 и выше', 'rating': 4.9},
-                        {'name': 'Превосходно - 4.5 и выше', 'rating': 4.5},
-                        {'name': 'Хорошо - 4.0 и выше', 'rating': 4.0},
-                        {'name': 'Достаточно хорошо - 3.5 и выше', 'rating': 3.5},
-                        {'name': 'Неплохо - 3.0 и выше', 'rating': 3.0},
-                      ].map((option) => InkWell(
-                        onTap: () {
-                          setState(() {
-                            _minRating = option['rating'] as double;
-                          });
-                          Navigator.pop(context);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                          margin: const EdgeInsets.only(bottom: 4),
-                          decoration: BoxDecoration(
-                            color: _minRating == option['rating']
-                                ? const Color(0xFF019863).withOpacity(0.1)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  option['name'] as String,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: _minRating == option['rating']
-                                        ? FontWeight.w600
-                                        : FontWeight.w400,
-                                    color: _minRating == option['rating']
-                                        ? const Color(0xFF019863)
-                                        : const Color(0xFF0D1C0D),
-                                  ),
-                                ),
-                              ),
-                              if (_minRating == option['rating'])
-                                const Icon(
-                                  Icons.check,
-                                  color: Color(0xFF019863),
-                                  size: 20,
-                                ),
-                            ],
-                          ),
-                        ),
-                      )).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
 }
+

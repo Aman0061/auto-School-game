@@ -6,8 +6,13 @@ class DrivingSchoolService {
   static const String _baseUrl = 'https://bpenxrpooolbnldsgtvq.supabase.co/rest/v1';
   static const String _apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwZW54cnBvb29sYm5sZHNndHZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwMzU4NDcsImV4cCI6MjA3MTYxMTg0N30.RlohQxcbaloXW7lKpRsqWzHP7AoP_LDkMp2kgVaPWug';
 
-  // Получение всех автошкол
+  // Получение автошкол (только первые 10)
   Future<List<DrivingSchool>> getDrivingSchools() async {
+    return getDrivingSchoolsPaginated(offset: 0, limit: 10);
+  }
+
+  // Получение автошкол с постраничной загрузкой
+  Future<List<DrivingSchool>> getDrivingSchoolsPaginated({int offset = 0, int limit = 10}) async {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/driving_schools?select=*'),
@@ -20,8 +25,25 @@ class DrivingSchoolService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        print('Получены данные из базы: ${json.encode(data)}');
-        return data.map((json) => DrivingSchool.fromJson(json)).toList();
+        
+        // Сортируем: сначала оплаченные (payed = true), потом остальные
+        final sortedData = List<Map<String, dynamic>>.from(data);
+        sortedData.sort((a, b) {
+          final aPayed = a['payed'] as bool? ?? false;
+          final bPayed = b['payed'] as bool? ?? false;
+          if (aPayed && !bPayed) return -1;
+          if (!aPayed && bPayed) return 1;
+          return 0;
+        });
+        
+        // Применяем постраничную загрузку
+        final startIndex = offset;
+        final endIndex = offset + limit;
+        final limitedData = sortedData.skip(startIndex).take(limit).toList();
+        
+        print('Загружаем автошколы с $startIndex по $endIndex (всего: ${limitedData.length})');
+        
+        return limitedData.map((json) => DrivingSchool.fromJson(json)).toList();
       } else {
         print('Ошибка загрузки автошкол: ${response.statusCode} - ${response.body}');
         throw Exception('Ошибка загрузки автошкол: ${response.statusCode}');
@@ -32,6 +54,8 @@ class DrivingSchoolService {
       return getMockData();
     }
   }
+
+
 
   // Получение всех категорий прав
   Future<List<LicenseCategory>> getLicenseCategories() async {

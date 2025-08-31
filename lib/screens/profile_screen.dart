@@ -21,15 +21,6 @@ class ProfileScreen extends StatelessWidget {
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              // Здесь можно добавить настройки
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Настройки')),
-              );
-            },
-          ),
         ],
       ),
       body: Consumer<AuthProvider>(

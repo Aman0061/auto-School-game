@@ -55,7 +55,7 @@ class DrivingSchoolDetailScreen extends StatelessWidget {
             _buildContactInfo(),
             
             // Категории прав
-            _buildCategories(),
+            _buildCategories(context),
             
             // Описание
             if (school.description != null && school.description!.isNotEmpty)
@@ -299,7 +299,7 @@ class DrivingSchoolDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCategories() {
+  Widget _buildCategories(BuildContext context) {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -328,10 +328,21 @@ class DrivingSchoolDetailScreen extends StatelessWidget {
             ),
           ),
           
-          Consumer<DrivingSchoolProvider>(
-            builder: (context, provider, child) {
-              final categories = provider.getSchoolCategories(school.id);
-              if (categories.isEmpty) {
+          FutureBuilder<List<String>>(
+            future: Provider.of<DrivingSchoolProvider>(context, listen: false).getSchoolCategories(school.id),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF019863)),
+                    ),
+                  ),
+                );
+              }
+              
+              if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.all(20),
                   child: Text(
@@ -344,73 +355,79 @@ class DrivingSchoolDetailScreen extends StatelessWidget {
                 );
               }
               
+              final categories = snapshot.data!;
+              
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 0),
                 child: Column(
-                  children: categories.map((category) {
-                    final price = provider.getPriceForCategory(school.id, category);
-                    return Container(
-                      margin: const EdgeInsets.only(left: 10),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color.fromARGB(255, 255, 255, 255),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          // Цветной значок категории
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: _getCategoryColor(category),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: Text(
-                                category,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                  children: categories.map((category) => FutureBuilder<int?>(
+                    future: Provider.of<DrivingSchoolProvider>(context, listen: false).getPriceForCategory(school.id, category),
+                    builder: (context, priceSnapshot) {
+                      final price = priceSnapshot.data;
+                      
+                      return Container(
+                        margin: const EdgeInsets.only(left: 10),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(255, 255, 255, 255),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            // Цветной значок категории
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: _getCategoryColor(category),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                            ),
-                          ),
-                          
-                          const SizedBox(width: 16),
-                          
-                          // Название категории и цена
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _getCategoryName(category),
+                              child: Center(
+                                child: Text(
+                                  category,
                                   style: const TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
                                     fontSize: 16,
                                   ),
                                 ),
-                                if (price != null) ...[
-                                  const SizedBox(height: 4),
+                              ),
+                            ),
+                            
+                            const SizedBox(width: 16),
+                            
+                            // Название категории и цена
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Text(
-                                    '${price.toStringAsFixed(0)} сом',
+                                    _getCategoryName(category),
                                     style: const TextStyle(
                                       color: Colors.black,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 16,
                                     ),
                                   ),
+                                  if (price != null) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      '${price.toStringAsFixed(0)} сом',
+                                      style: const TextStyle(
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                          ],
+                        ),
+                      );
+                    },
+                  )).toList(),
                 ),
               );
             },
@@ -749,10 +766,10 @@ class DrivingSchoolDetailScreen extends StatelessWidget {
     
     // Формируем сообщение
     final message = '''
-${school.name} - новая заявка
-${user.name}
-Категория $selectedCategory
-${user.username}
+    ${school.name} - новая заявка
+    ${user.name}
+    Категория $selectedCategory
+    ${user.username}
     '''.trim();
     
     // Создаем URL для Telegram

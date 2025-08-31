@@ -19,7 +19,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<QuizProvider>(context, listen: false).loadModules();
-      Provider.of<DrivingSchoolProvider>(context, listen: false).loadDrivingSchools();
       Provider.of<RewardsProvider>(context, listen: false).initialize();
     });
   }

@@ -164,7 +164,17 @@ class DrivingSchool {
   // Геттер для особенностей (используем категории)
   List<String> get features => categories;
 
-  factory DrivingSchool.fromJson(Map<String, dynamic> json) => _$DrivingSchoolFromJson(json);
+  factory DrivingSchool.fromJson(Map<String, dynamic> json) {
+    // Отладочная информация для проверки парсинга
+    if (json['name'] == 'ильяз') {
+      print('!!! ПАРСИНГ АВТОШКОЛЫ ИЛЬЯЗ !!!');
+      print('Сырые данные: ${json.toString()}');
+      print('Поле payed в JSON: ${json['payed']}');
+      print('Тип поля payed в JSON: ${json['payed'].runtimeType}');
+    }
+    
+    return _$DrivingSchoolFromJson(json);
+  }
   Map<String, dynamic> toJson() => _$DrivingSchoolToJson(this);
 }
 
