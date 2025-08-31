@@ -24,67 +24,90 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF019863),
-        unselectedItemColor: const Color(0xFF0D1C0D),
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
-        elevation: 8,
-        items: [
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              'assets/images/icons/home_icon.svg',
-              width: 24,
-              height: 24,
-              colorFilter: ColorFilter.mode(
-                _currentIndex == 0 ? const Color(0xFF019863) : const Color(0xFF0D1C0D),
-                BlendMode.srcIn,
+    return WillPopScope(
+      onWillPop: () async {
+        // Показываем диалог подтверждения выхода
+        final shouldPop = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Выйти из приложения?'),
+            content: const Text('Вы уверены, что хотите выйти?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Отмена'),
               ),
-            ),
-            label: 'Главная',
-          ),
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              'assets/images/icons/checklist_icon.svg',
-              width: 24,
-              height: 24,
-              colorFilter: ColorFilter.mode(
-                _currentIndex == 1 ? const Color(0xFF019863) : const Color(0xFF0D1C0D),
-                BlendMode.srcIn,
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Выйти'),
               ),
-            ),
-            label: 'Тесты',
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/images/icons/car_icon.png',
-              width: 24,
-              height: 24,
+        );
+        return shouldPop ?? false;
+      },
+      child: Scaffold(
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: const Color(0xFF019863),
+          unselectedItemColor: const Color(0xFF0D1C0D),
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
+          elevation: 8,
+          items: [
+            BottomNavigationBarItem(
+              icon: SvgPicture.asset(
+                'assets/images/icons/home_icon.svg',
+                width: 24,
+                height: 24,
+                colorFilter: ColorFilter.mode(
+                  _currentIndex == 0 ? const Color(0xFF019863) : const Color(0xFF0D1C0D),
+                  BlendMode.srcIn,
+                ),
+              ),
+              label: 'Главная',
             ),
-            label: 'Автошколы',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/images/icons/user_icon.png',
-              width: 24,
-              height: 24,
+            BottomNavigationBarItem(
+              icon: SvgPicture.asset(
+                'assets/images/icons/checklist_icon.svg',
+                width: 24,
+                height: 24,
+                colorFilter: ColorFilter.mode(
+                  _currentIndex == 1 ? const Color(0xFF019863) : const Color(0xFF0D1C0D),
+                  BlendMode.srcIn,
+                ),
+              ),
+              label: 'Тесты',
             ),
-            label: 'Профиль',
-          ),
-        ],
+            BottomNavigationBarItem(
+              icon: Image.asset(
+                'assets/images/icons/car_icon.png',
+                width: 24,
+                height: 24,
+              ),
+              label: 'Автошколы',
+            ),
+            BottomNavigationBarItem(
+              icon: Image.asset(
+                'assets/images/icons/user_icon.png',
+                width: 24,
+                height: 24,
+              ),
+              label: 'Профиль',
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -5,9 +5,8 @@ part 'user.g.dart';
 @JsonSerializable()
 class User {
   final String id;
-  final String email;
+  final String username; // уникальный логин на английском языке
   final String name;
-  final String phone;
   final String userType; // 'student' или 'seeker'
   @JsonKey(includeFromJson: false, includeToJson: false)
   final String? password; // пароль (может быть null для существующих пользователей)
@@ -16,9 +15,8 @@ class User {
 
   User({
     required this.id,
-    required this.email,
+    required this.username,
     required this.name,
-    required this.phone,
     required this.userType,
     this.password,
     required this.createdAt,
@@ -30,9 +28,8 @@ class User {
 
   User copyWith({
     String? id,
-    String? email,
+    String? username,
     String? name,
-    String? phone,
     String? userType,
     String? password,
     DateTime? createdAt,
@@ -40,9 +37,8 @@ class User {
   }) {
     return User(
       id: id ?? this.id,
-      email: email ?? this.email,
+      username: username ?? this.username,
       name: name ?? this.name,
-      phone: phone ?? this.phone,
       userType: userType ?? this.userType,
       password: password ?? this.password,
       createdAt: createdAt ?? this.createdAt,

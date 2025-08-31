@@ -13,8 +13,7 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  late TextEditingController _emailController;
-  late TextEditingController _phoneController;
+  late TextEditingController _usernameController;
   String _selectedUserType = 'seeker';
   bool _isLoading = false;
 
@@ -23,16 +22,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     final user = context.read<AuthProvider>().currentUser;
     _nameController = TextEditingController(text: user?.name ?? '');
-    _emailController = TextEditingController(text: user?.email ?? '');
-    _phoneController = TextEditingController(text: user?.phone ?? '');
+    _usernameController = TextEditingController(text: user?.username ?? '');
     _selectedUserType = user?.userType ?? 'seeker';
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
+    _usernameController.dispose();
     super.dispose();
   }
 
@@ -59,8 +56,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       // Создаем обновленного пользователя
       final updatedUser = currentUser.copyWith(
         name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-        phone: _phoneController.text.trim(),
+        username: _usernameController.text.trim(),
         userType: _selectedUserType,
       );
 
@@ -103,190 +99,208 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Редактировать профиль'),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF0D1C0D),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Карточка с формой
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Личная информация',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0D1C0D),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Поле ФИО
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'ФИО',
-                        hintText: 'Введите ваше полное имя',
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Пожалуйста, введите ФИО';
-                        }
-                        if (value.trim().length < 2) {
-                          return 'ФИО должно содержать минимум 2 символа';
-                        }
-                        return null;
-                      },
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Поле Email
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        hintText: 'Введите ваш email',
-                        prefixIcon: Icon(Icons.email),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Пожалуйста, введите email';
-                        }
-                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
-                          return 'Пожалуйста, введите корректный email';
-                        }
-                        return null;
-                      },
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Поле телефона
-                    TextFormField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: const InputDecoration(
-                        labelText: 'Номер телефона',
-                        hintText: 'Введите номер телефона',
-                        prefixIcon: Icon(Icons.phone),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Пожалуйста, введите номер телефона';
-                        }
-                        if (value.trim().length < 10) {
-                          return 'Номер телефона должен содержать минимум 10 цифр';
-                        }
-                        return null;
-                      },
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Тип пользователя
-                    const Text(
-                      'Тип пользователя',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF0D1C0D),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 12),
-                    
-                    RadioListTile<String>(
-                      title: const Text('Я ищу автошколу'),
-                      value: 'seeker',
-                      groupValue: _selectedUserType,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedUserType = value!;
-                        });
-                      },
-                      activeColor: const Color(0xFF019863),
-                    ),
-                    
-                    RadioListTile<String>(
-                      title: const Text('Я уже учусь в автошколе'),
-                      value: 'student',
-                      groupValue: _selectedUserType,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedUserType = value!;
-                        });
-                      },
-                      activeColor: const Color(0xFF019863),
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Кнопка сохранения
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _saveProfile,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF019863),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Поле имени
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade300, width: 1),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          'Сохранить изменения',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                  child: TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Имя',
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Пожалуйста, введите имя';
+                      }
+                      return null;
+                    },
+                  ),
                 ),
-              ),
-            ],
+                
+                const SizedBox(height: 20),
+                
+                // Поле username
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade300, width: 1),
+                  ),
+                  child: TextFormField(
+                    controller: _usernameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Логин',
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Пожалуйста, введите логин';
+                      }
+                      if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
+                        return 'Логин может содержать только английские буквы, цифры и знак подчеркивания';
+                      }
+                      if (value.length < 3) {
+                        return 'Логин должен содержать минимум 3 символа';
+                      }
+                      if (value.length > 20) {
+                        return 'Логин должен содержать максимум 20 символов';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Выбор типа пользователя
+                const Text(
+                  'Тип пользователя:',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF0D1C0D),
+                  ),
+                ),
+                
+                const SizedBox(height: 12),
+                
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedUserType = 'student';
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: _selectedUserType == 'student' 
+                                ? Colors.blue 
+                                : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _selectedUserType == 'student' 
+                                  ? Colors.blue 
+                                  : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Text(
+                            'Студент',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _selectedUserType == 'student' 
+                                  ? Colors.white 
+                                  : Colors.grey.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(width: 12),
+                    
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedUserType = 'seeker';
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: _selectedUserType == 'seeker' 
+                                ? Colors.blue 
+                                : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _selectedUserType == 'seeker' 
+                                  ? Colors.blue 
+                                  : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Text(
+                            'Ищущий',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _selectedUserType == 'seeker' 
+                                  ? Colors.white 
+                                  : Colors.grey.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 32),
+                
+                // Кнопка сохранения
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF019863).withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _saveProfile,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: const Color(0xFF019863),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Сохранить',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

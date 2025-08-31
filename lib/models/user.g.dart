@@ -8,9 +8,8 @@ part of 'user.dart';
 
 User _$UserFromJson(Map<String, dynamic> json) => User(
   id: json['id'] as String,
-  email: json['email'] as String,
+  username: json['username'] as String,
   name: json['name'] as String,
-  phone: json['phone'] as String,
   userType: json['userType'] as String,
   createdAt: DateTime.parse(json['createdAt'] as String),
   moduleProgress: Map<String, int>.from(json['moduleProgress'] as Map),
@@ -18,9 +17,8 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
 
 Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
   'id': instance.id,
-  'email': instance.email,
+  'username': instance.username,
   'name': instance.name,
-  'phone': instance.phone,
   'userType': instance.userType,
   'createdAt': instance.createdAt.toIso8601String(),
   'moduleProgress': instance.moduleProgress,

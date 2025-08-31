@@ -13,7 +13,7 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   bool _isLogin = true;
@@ -21,7 +21,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
     super.dispose();
@@ -33,21 +33,21 @@ class _AuthScreenState extends State<AuthScreen> {
       
       bool success;
       if (_isLogin) {
-        // Для входа используем телефон (email как телефон для демо)
-        success = await authProvider.loginByPhone(_emailController.text.trim());
+        // Для входа используем username
+        success = await authProvider.loginByUsername(_usernameController.text.trim());
       } else {
         success = await authProvider.register(
-          email: _emailController.text.trim(),
+          username: _usernameController.text.trim(),
           password: _passwordController.text,
           name: _nameController.text.trim(),
-          phone: '+996700466412', // Временный номер для демо
           userType: 'seeker', // Временный тип для демо
         );
       }
 
       if (success && mounted) {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const MainScreen()),
+          (route) => false, // Удаляем все предыдущие экраны из стека
         );
       }
     }
@@ -56,7 +56,7 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -66,133 +66,165 @@ class _AuthScreenState extends State<AuthScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 60),
-                // Логотип
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2196F3),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.directions_car,
-                    size: 50,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 30),
+                
+                // Заголовок
                 Text(
-                  _isLogin ? 'Вход в систему' : 'Регистрация',
+                  _isLogin ? 'Добро пожаловать' : 'Создать аккаунт',
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2196F3),
+                    color: Color(0xFF0D1C0D),
                   ),
                   textAlign: TextAlign.center,
                 ),
+                
+                const SizedBox(height: 8),
+                
+                Text(
+                  _isLogin ? 'Войдите в свой аккаунт' : 'Создайте свой аккаунт',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                
                 const SizedBox(height: 40),
                 
                 // Поле имени (только для регистрации)
                 if (!_isLogin) ...[
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Имя',
-                      prefixIcon: Icon(Icons.person),
-                      border: OutlineInputBorder(),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F9FA),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade300, width: 1),
+                    ),
+                    child: TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Имя',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Пожалуйста, введите имя';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+                
+                // Поле username
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade300, width: 1),
+                  ),
+                  child: TextFormField(
+                    controller: _usernameController,
+                    decoration: InputDecoration(
+                      labelText: _isLogin ? 'Логин' : 'Логин',
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Пожалуйста, введите имя';
+                        return 'Пожалуйста, введите логин';
+                      }
+                      if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
+                        return 'Логин может содержать только английские буквы, цифры и знак подчеркивания';
+                      }
+                      if (value.length < 3) {
+                        return 'Логин должен содержать минимум 3 символа';
                       }
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
-                ],
-                
-                // Поле email/телефона
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: _isLogin ? TextInputType.phone : TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: _isLogin ? 'Номер телефона' : 'Email',
-                    prefixIcon: Icon(_isLogin ? Icons.phone : Icons.email),
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return _isLogin ? 'Пожалуйста, введите номер телефона' : 'Пожалуйста, введите email';
-                    }
-                    if (!_isLogin && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                      return 'Пожалуйста, введите корректный email';
-                    }
-                    return null;
-                  },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 
                 // Поле пароля
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Пароль',
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                    border: const OutlineInputBorder(),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade300, width: 1),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Пожалуйста, введите пароль';
-                    }
-                    if (value.length < 6) {
-                      return 'Пароль должен содержать минимум 6 символов';
-                    }
-                    return null;
-                  },
+                  child: TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: 'Пароль',
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                          color: Colors.grey.shade600,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Пожалуйста, введите пароль';
+                      }
+                      if (value.length < 6) {
+                        return 'Пароль должен содержать минимум 6 символов';
+                      }
+                      return null;
+                    },
+                  ),
                 ),
                 const SizedBox(height: 24),
                 
                 // Кнопка отправки
                 Consumer<AuthProvider>(
                   builder: (context, authProvider, child) {
-                    return ElevatedButton(
-                      onPressed: authProvider.isLoading ? null : _submitForm,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color(0xFF2196F3),
-                        foregroundColor: Colors.white,
+                    return Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF019863).withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
                       ),
-                      child: authProvider.isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      child: ElevatedButton(
+                        onPressed: authProvider.isLoading ? null : _submitForm,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: const Color(0xFF019863),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: authProvider.isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : Text(
+                                _isLogin ? 'Войти' : 'Зарегистрироваться',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                               ),
-                            )
-                          : Text(
-                              _isLogin ? 'Войти' : 'Зарегистрироваться',
-                              style: const TextStyle(fontSize: 16),
-                            ),
+                      ),
                     );
                   },
                 ),
@@ -203,16 +235,23 @@ class _AuthScreenState extends State<AuthScreen> {
                   builder: (context, authProvider, child) {
                     if (authProvider.error != null) {
                       return Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.red.shade200),
                         ),
-                        child: Text(
-                          authProvider.error!,
-                          style: TextStyle(color: Colors.red.shade700),
-                          textAlign: TextAlign.center,
+                        child: Row(
+                          children: [
+                            Icon(Icons.error_outline, color: Colors.red.shade600),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                authProvider.error!,
+                                style: TextStyle(color: Colors.red.shade700),
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     }
@@ -223,33 +262,55 @@ class _AuthScreenState extends State<AuthScreen> {
                 
                 // Переключение между входом и регистрацией
                 if (_isLogin) ...[
-                  // Кнопка для перехода к новому экрану регистрации
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const RegistrationScreen(),
+                  // Разделитель
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'или',
+                          style: TextStyle(color: Colors.grey.shade600),
                         ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF019863),
-                      side: const BorderSide(color: Color(0xFF019863)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
                       ),
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Кнопка регистрации
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF019863), width: 1),
                     ),
-                    child: const Text(
-                      'Зарегистрироваться',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const RegistrationScreen(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF019863),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        'Создать аккаунт',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
                 ] else ...[
                   // Обычное переключение для режима регистрации
                   Row(
@@ -269,7 +330,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         child: const Text(
                           'Войти',
                           style: TextStyle(
-                            color: Color(0xFF2196F3),
+                            color: Color(0xFF019863),
                             fontWeight: FontWeight.bold,
                           ),
                         ),

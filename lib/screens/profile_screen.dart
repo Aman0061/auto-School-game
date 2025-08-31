@@ -96,9 +96,9 @@ class ProfileScreen extends StatelessWidget {
                       
                       const SizedBox(height: 8),
                       
-                      // Email
+                      // Username
                       Text(
-                        user.email,
+                        user.username,
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.grey.shade600,

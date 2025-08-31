@@ -27,17 +27,19 @@ class _SplashScreenState extends State<SplashScreen> {
       
       if (authProvider.isAuthenticated) {
         // Если пользователь авторизован, переходим к главному экрану
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (context) => const MainScreen(),
           ),
+          (route) => false, // Удаляем все предыдущие экраны из стека
         );
       } else {
         // Если не авторизован, показываем экран авторизации
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (context) => const AuthScreen(),
           ),
+          (route) => false, // Удаляем все предыдущие экраны из стека
         );
       }
     }

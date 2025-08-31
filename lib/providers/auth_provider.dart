@@ -18,10 +18,9 @@ class AuthProvider extends ChangeNotifier {
 
   // Регистрация пользователя
   Future<bool> register({
-    required String email,
+    required String username,
     required String password,
     required String name,
-    required String phone,
     required String userType,
   }) async {
     _isLoading = true;
@@ -32,9 +31,8 @@ class AuthProvider extends ChangeNotifier {
       // Вызываем API для регистрации
       final result = await UserService.registerUser(
         name: name,
-        phone: phone,
+        username: username,
         userType: userType,
-        email: email,
         password: password,
       );
 
@@ -76,15 +74,15 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Вход пользователя по телефону
-  Future<bool> loginByPhone(String phone) async {
+  // Вход пользователя по username
+  Future<bool> loginByUsername(String username) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // Вызываем API для входа по телефону
-      final user = await UserService.loginByPhone(phone);
+      // Вызываем API для входа по username
+      final user = await UserService.loginByUsername(username);
 
       if (user != null) {
         _currentUser = user;
@@ -96,7 +94,7 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _error = 'Пользователь с таким номером телефона не найден';
+        _error = 'Пользователь с таким логином не найден';
         _isLoading = false;
         notifyListeners();
         return false;
@@ -109,28 +107,42 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Вход пользователя (для обратной совместимости)
+  // Демо-вход для тестирования
   Future<bool> login({
-    required String email,
+    required String username,
     required String password,
   }) async {
-    // Для демо создаем пользователя
-    final user = User(
-      id: 'demo_user',
-      email: email,
-      name: 'Демо Пользователь',
-      phone: '+996700466412',
-      userType: 'seeker',
-      createdAt: DateTime.now(),
-      moduleProgress: {'module_1': 0, 'module_2': 0, 'module_3': 0},
-    );
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
 
-    _currentUser = user;
-    
-    await _secureStorage.write(key: 'auth_token', value: 'dummy_token');
-    await _saveUserData(user);
+    try {
+      // Создаем демо-пользователя
+      final user = User(
+        id: 'demo_user_1',
+        username: username,
+        name: 'Демо Пользователь',
+        userType: 'seeker',
+        password: password,
+        createdAt: DateTime.now(),
+        moduleProgress: {},
+      );
 
-    return true;
+      _currentUser = user;
+      
+      // Сохраняем токен и данные пользователя
+      await _secureStorage.write(key: 'auth_token', value: 'demo_token_${user.id}');
+      await _saveUserData(user);
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Ошибка демо-входа: ${e.toString()}';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   // Выход пользователя
@@ -141,24 +153,9 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Проверка авторизации при запуске
-  Future<void> checkAuthStatus() async {
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      final token = await _secureStorage.read(key: 'auth_token');
-      if (token != null) {
-        final userData = await _loadUserData();
-        if (userData != null) {
-          _currentUser = userData;
-        }
-      }
-    } catch (e) {
-      _error = 'Ошибка проверки авторизации: ${e.toString()}';
-    }
-
-    _isLoading = false;
+  // Очистка ошибки
+  void clearError() {
+    _error = null;
     notifyListeners();
   }
 
@@ -169,13 +166,10 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      print('AuthProvider: Начинаем обновление профиля для пользователя ${updatedUser.id}');
-      
       // Вызываем API для обновления профиля
       final success = await UserService.updateUser(updatedUser);
 
       if (success) {
-        print('AuthProvider: Профиль успешно обновлен в базе данных');
         _currentUser = updatedUser;
         await _saveUserData(updatedUser);
         
@@ -183,14 +177,12 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        print('AuthProvider: Не удалось обновить профиль в базе данных');
-        _error = 'Не удалось обновить профиль в базе данных';
+        _error = 'Не удалось обновить профиль';
         _isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (e) {
-      print('AuthProvider: Ошибка обновления профиля: $e');
       _error = 'Ошибка обновления профиля: ${e.toString()}';
       _isLoading = false;
       notifyListeners();
@@ -198,37 +190,39 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Обновление прогресса модуля
-  void updateModuleProgress(String moduleId, int progress) {
-    if (_currentUser != null) {
-      final updatedProgress = Map<String, int>.from(_currentUser!.moduleProgress);
-      updatedProgress[moduleId] = progress;
-      
-      _currentUser = _currentUser!.copyWith(moduleProgress: updatedProgress);
-      _saveUserData(_currentUser!);
-      notifyListeners();
+  // Проверка аутентификации при запуске
+  Future<void> checkAuthStatus() async {
+    try {
+      final token = await _secureStorage.read(key: 'auth_token');
+      if (token != null) {
+        final userData = await _getUserData();
+        if (userData != null) {
+          _currentUser = userData;
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      print('Ошибка проверки статуса аутентификации: $e');
     }
   }
 
   // Сохранение данных пользователя
   Future<void> _saveUserData(User user) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_data', user.toJson().toString());
+    await prefs.setString('user_data', jsonEncode(user.toJson()));
   }
 
-  // Загрузка данных пользователя
-  Future<User?> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userDataString = prefs.getString('user_data');
-    if (userDataString != null) {
-      try {
-        final userData = Map<String, dynamic>.from(
-          jsonDecode(userDataString) as Map,
-        );
+  // Получение данных пользователя
+  Future<User?> _getUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userDataString = prefs.getString('user_data');
+      if (userDataString != null) {
+        final userData = jsonDecode(userDataString);
         return User.fromJson(userData);
-      } catch (e) {
-        return null;
       }
+    } catch (e) {
+      print('Ошибка получения данных пользователя: $e');
     }
     return null;
   }
@@ -237,10 +231,5 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _clearUserData() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_data');
-  }
-
-  void clearError() {
-    _error = null;
-    notifyListeners();
   }
 }

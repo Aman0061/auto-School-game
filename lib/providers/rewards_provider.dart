@@ -253,4 +253,6 @@ class RewardsProvider extends ChangeNotifier {
     _saveUserStats();
     notifyListeners();
   }
+
+  addReward(int xpReward, int pointsReward, String s) {}
 }

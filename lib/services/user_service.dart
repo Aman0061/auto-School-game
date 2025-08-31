@@ -10,18 +10,17 @@ class UserService {
   // Регистрация нового пользователя
   static Future<Map<String, dynamic>> registerUser({
     required String name,
-    required String phone,
+    required String username,
     required String userType,
-    String? email,
     String? password,
   }) async {
     try {
-      // Сначала проверяем, существует ли пользователь с таким телефоном
-      final existingUser = await loginByPhone(phone);
+      // Сначала проверяем, существует ли пользователь с таким username
+      final existingUser = await loginByUsername(username);
       if (existingUser != null) {
         return {
           'success': false,
-          'error': 'Пользователь с таким номером телефона уже существует',
+          'error': 'Пользователь с таким логином уже существует',
           'user': existingUser,
         };
       }
@@ -35,9 +34,8 @@ class UserService {
         },
         body: jsonEncode({
           'name': name,
-          'phone': phone,
+          'username': username,
           'user_type': userType,
-          'email': email ?? 'user_${DateTime.now().millisecondsSinceEpoch}@example.com',
           'password': password ?? 'default_password_${DateTime.now().millisecondsSinceEpoch}',
           'created_at': DateTime.now().toIso8601String(),
           'module_progress': {},
@@ -46,12 +44,21 @@ class UserService {
 
       print('Регистрация пользователя - статус: ${response.statusCode}');
       print('Регистрация пользователя - ответ: ${response.body}');
+      
+      if (response.statusCode != 201) {
+        try {
+          final errorData = jsonDecode(response.body);
+          print('Детали ошибки: $errorData');
+        } catch (e) {
+          print('Не удалось распарсить ошибку: $e');
+        }
+      }
 
       if (response.statusCode == 201) {
-        // После успешного создания всегда получаем пользователя по телефону
+        // После успешного создания всегда получаем пользователя по username
         // Это обходит проблему с парсингом поля password
-        print('Пользователь создан, получаем данные по телефону...');
-        final createdUser = await loginByPhone(phone);
+        print('Пользователь создан, получаем данные по username...');
+        final createdUser = await loginByUsername(username);
         if (createdUser != null) {
           return {
             'success': true,
@@ -67,8 +74,8 @@ class UserService {
         final errorData = jsonDecode(response.body);
         String errorMessage = 'Ошибка регистрации';
         
-        if (errorData['code'] == '23505' && errorData['message'].contains('phone')) {
-          errorMessage = 'Пользователь с таким номером телефона уже существует';
+        if (errorData['code'] == '23505' && errorData['message'].contains('username')) {
+          errorMessage = 'Пользователь с таким логином уже существует';
         } else if (errorData['message'] != null) {
           errorMessage = errorData['message'];
         }
@@ -81,10 +88,10 @@ class UserService {
     } catch (e) {
       print('Исключение при регистрации: $e');
       
-      // Если это ошибка парсинга, попробуем получить пользователя по телефону
+      // Если это ошибка парсинга, попробуем получить пользователя по username
       if (e.toString().contains('FormatException')) {
         try {
-          final createdUser = await loginByPhone(phone);
+          final createdUser = await loginByUsername(username);
           if (createdUser != null) {
             return {
               'success': true,
@@ -98,56 +105,55 @@ class UserService {
       
       return {
         'success': false,
-        'error': 'Ошибка сети: ${e.toString()}',
+        'error': 'Ошибка регистрации: ${e.toString()}',
       };
     }
   }
 
-  // Авторизация пользователя по телефону
-  static Future<User?> loginByPhone(String phone) async {
+  // Вход пользователя по username
+  static Future<User?> loginByUsername(String username) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/rest/v1/users?phone=eq.$phone&select=*'),
+        Uri.parse('$baseUrl/rest/v1/users?username=eq.$username'),
         headers: {
           'apikey': apiKey,
           'Authorization': 'Bearer $apiKey',
         },
       );
 
-      print('Авторизация по телефону - статус: ${response.statusCode}');
-      print('Авторизация по телефону - ответ: ${response.body}');
-
       if (response.statusCode == 200) {
-        // Проверяем, что ответ не пустой
-        if (response.body.isNotEmpty) {
-          try {
-            final List<dynamic> users = jsonDecode(response.body);
-            if (users.isNotEmpty) {
-              final userData = users.first as Map<String, dynamic>;
-              // Создаем безопасную копию данных без проблемных полей
-              final safeUserData = <String, dynamic>{
-                'id': userData['id'],
-                'email': userData['email'],
-                'name': userData['name'],
-                'phone': userData['phone'],
-                'userType': userData['user_type'],
-                'createdAt': userData['created_at'],
-                'moduleProgress': userData['module_progress'] ?? {},
-              };
-              print('Безопасные данные пользователя: $safeUserData');
-              return User.fromJson(safeUserData);
-            }
-          } catch (e) {
-            print('Ошибка парсинга пользователя: $e');
-            print('Данные пользователя: ${response.body}');
+        final List<dynamic> users = jsonDecode(response.body);
+        print('Получено пользователей: ${users.length}');
+        if (users.isNotEmpty) {
+          final userData = users.first;
+          print('Данные пользователя: $userData');
+          
+          // Безопасно извлекаем данные пользователя
+          final safeUserData = {
+            'id': userData['id']?.toString() ?? '',
+            'username': userData['username']?.toString() ?? '',
+            'name': userData['name']?.toString() ?? '',
+            'userType': userData['user_type']?.toString() ?? 'seeker',
+            'createdAt': userData['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+            'moduleProgress': userData['module_progress'] ?? {},
+          };
+          
+          print('Безопасные данные: $safeUserData');
+          
+          // Проверяем, что все обязательные поля присутствуют
+          if (safeUserData['id']!.isEmpty || 
+              safeUserData['username']!.isEmpty || 
+              safeUserData['name']!.isEmpty) {
+            print('Ошибка: отсутствуют обязательные поля');
+            return null;
           }
-        } else {
-          print('Пустой ответ от сервера при поиске пользователя');
+
+          return User.fromJson(safeUserData);
         }
       }
       return null;
     } catch (e) {
-      print('Исключение при авторизации: $e');
+      print('Ошибка входа по username: $e');
       return null;
     }
   }
@@ -166,7 +172,19 @@ class UserService {
       if (response.statusCode == 200) {
         final List<dynamic> users = jsonDecode(response.body);
         if (users.isNotEmpty) {
-          return User.fromJson(users.first);
+          final userData = users.first;
+          
+          // Безопасно извлекаем данные пользователя
+          final safeUserData = {
+            'id': userData['id']?.toString() ?? '',
+            'username': userData['username']?.toString() ?? '',
+            'name': userData['name']?.toString() ?? '',
+            'userType': userData['user_type']?.toString() ?? 'seeker',
+            'createdAt': userData['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+            'moduleProgress': userData['module_progress'] ?? {},
+          };
+
+          return User.fromJson(safeUserData);
         }
       }
       return null;
@@ -176,66 +194,30 @@ class UserService {
     }
   }
 
-  // Обновление профиля пользователя
+  // Обновление пользователя
   static Future<bool> updateUser(User user) async {
     try {
-      print('Начинаем обновление пользователя с ID: ${user.id}');
-      print('Данные для обновления: name=${user.name}, email=${user.email}, phone=${user.phone}, userType=${user.userType}');
-      
-      // Проверяем, что у нас есть валидный ID
-      if (user.id.isEmpty || user.id == 'demo_user') {
-        print('Ошибка: Невалидный ID пользователя: ${user.id}');
-        return false;
-      }
-      
       final response = await http.patch(
         Uri.parse('$baseUrl/rest/v1/users?id=eq.${user.id}'),
         headers: {
           'Content-Type': 'application/json',
           'apikey': apiKey,
           'Authorization': 'Bearer $apiKey',
-          'Prefer': 'return=minimal',
         },
         body: jsonEncode({
           'name': user.name,
-          'email': user.email,
-          'phone': user.phone,
+          'username': user.username,
           'user_type': user.userType,
-          'updated_at': DateTime.now().toIso8601String(),
+          'module_progress': user.moduleProgress,
         }),
       );
 
-      print('Обновление пользователя - статус: ${response.statusCode}');
-      print('Обновление пользователя - заголовки: ${response.headers}');
-      print('Обновление пользователя - ответ: ${response.body}');
-
-      // Supabase может возвращать 200 или 204 для успешного обновления
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        print('Пользователь успешно обновлен в базе данных');
-        
-        // Дополнительная проверка: получаем обновленного пользователя
-        final updatedUser = await loginByPhone(user.phone);
-        if (updatedUser != null) {
-          print('Подтверждение: пользователь успешно получен из базы данных');
-          print('Обновленные данные: name=${updatedUser.name}, email=${updatedUser.email}');
-        }
-        
+      if (response.statusCode == 204) {
         return true;
-      } else {
-        print('Ошибка обновления: ${response.statusCode} - ${response.body}');
-        
-        // Попробуем получить детали ошибки
-        try {
-          final errorData = jsonDecode(response.body);
-          print('Детали ошибки: $errorData');
-        } catch (e) {
-          print('Не удалось распарсить детали ошибки: $e');
-        }
-        
-        return false;
       }
+      return false;
     } catch (e) {
-      print('Исключение при обновлении пользователя: $e');
+      print('Ошибка обновления пользователя: $e');
       return false;
     }
   }

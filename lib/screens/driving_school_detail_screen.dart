@@ -752,7 +752,7 @@ class DrivingSchoolDetailScreen extends StatelessWidget {
 ${school.name} - новая заявка
 ${user.name}
 Категория $selectedCategory
-${user.email}
+${user.username}
     '''.trim();
     
     // Создаем URL для Telegram
