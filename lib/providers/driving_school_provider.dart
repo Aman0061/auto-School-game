@@ -138,4 +138,51 @@ class DrivingSchoolProvider extends ChangeNotifier {
   void resetFilters() {
     loadDrivingSchools();
   }
+
+  /// Получить отсортированные автошколы по расстоянию
+  List<DrivingSchool> getSortedSchoolsByDistance(double? userLat, double? userLng) {
+    final sortedSchools = List<DrivingSchool>.from(_schools);
+    
+    // Сначала сортируем по payed статусу (payed = true в топе)
+    sortedSchools.sort((a, b) {
+      if (a.payed && !b.payed) return -1;
+      if (!a.payed && b.payed) return 1;
+      return 0;
+    });
+    
+    // Если геолокация доступна, внутри каждой группы (payed и не payed) сортируем по расстоянию
+    if (userLat != null && userLng != null) {
+      // Группируем автошколы по payed статусу
+      final payedSchools = sortedSchools.where((school) => school.payed).toList();
+      final nonPayedSchools = sortedSchools.where((school) => !school.payed).toList();
+      
+      // Сортируем payed школы по расстоянию
+      payedSchools.sort((a, b) {
+        final aDistance = a.getDistanceToUser(userLat, userLng);
+        final bDistance = b.getDistanceToUser(userLat, userLng);
+        
+        if (aDistance != null && bDistance != null) {
+          return aDistance.compareTo(bDistance);
+        }
+        return 0;
+      });
+      
+      // Сортируем не payed школы по расстоянию
+      nonPayedSchools.sort((a, b) {
+        final aDistance = a.getDistanceToUser(userLat, userLng);
+        final bDistance = b.getDistanceToUser(userLat, userLng);
+        
+        if (aDistance != null && bDistance != null) {
+          return aDistance.compareTo(bDistance);
+        }
+        return 0;
+      });
+      
+      // Объединяем результаты: сначала payed, затем не payed
+      return [...payedSchools, ...nonPayedSchools];
+    }
+    
+    // Если геолокация недоступна, возвращаем только по payed статусу
+    return sortedSchools;
+  }
 }

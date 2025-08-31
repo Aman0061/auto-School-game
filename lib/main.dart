@@ -5,6 +5,7 @@ import 'providers/quiz_provider.dart';
 import 'providers/driving_school_provider.dart';
 import 'providers/rewards_provider.dart';
 import 'providers/ticket_provider.dart';
+import 'providers/location_provider.dart';
 import 'screens/splash_screen.dart';
 
 void main() {
@@ -23,6 +24,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DrivingSchoolProvider()),
         ChangeNotifierProvider(create: (_) => RewardsProvider()),
         ChangeNotifierProvider(create: (_) => TicketProvider()),
+        ChangeNotifierProvider(create: (_) => LocationProvider()),
       ],
       child: MaterialApp(
         title: 'Автошкола Квиз',

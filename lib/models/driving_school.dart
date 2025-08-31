@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'dart:math' as math;
 
 part 'driving_school.g.dart';
 
@@ -163,6 +164,42 @@ class DrivingSchool {
   
   // Геттер для особенностей (используем категории)
   List<String> get features => categories;
+
+  /// Вычислить расстояние до автошколы
+  double? getDistanceToUser(double? userLat, double? userLng) {
+    if (lat == null || lng == null || userLat == null || userLng == null) {
+      return null;
+    }
+
+    // Простая формула гаверсинуса для вычисления расстояния
+    const double earthRadius = 6371; // Радиус Земли в километрах
+    
+    double lat1 = userLat * (math.pi / 180);
+    double lat2 = lat! * (math.pi / 180);
+    double deltaLat = (lat! - userLat) * (math.pi / 180);
+    double deltaLng = (lng! - userLng) * (math.pi / 180);
+
+    double a = math.sin(deltaLat / 2) * math.sin(deltaLat / 2) +
+               math.cos(lat1) * math.cos(lat2) * math.sin(deltaLng / 2) * math.sin(deltaLng / 2);
+    double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+
+    double distance = earthRadius * c;
+    return double.parse(distance.toStringAsFixed(1));
+  }
+
+  /// Форматировать расстояние для отображения
+  String formatDistance(double? userLat, double? userLng) {
+    double? distance = getDistanceToUser(userLat, userLng);
+    if (distance == null) return '';
+
+    if (distance < 1) {
+      return '${(distance * 1000).round()} м';
+    } else if (distance < 10) {
+      return '${distance.toStringAsFixed(1)} км';
+    } else {
+      return '${distance.round()} км';
+    }
+  }
 
   factory DrivingSchool.fromJson(Map<String, dynamic> json) {
     // Отладочная информация для проверки парсинга

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/driving_school.dart';
 import '../providers/driving_school_provider.dart';
 import 'driving_school_detail_screen.dart';
+import '../providers/location_provider.dart';
 
 class DrivingSchoolsScreen extends StatefulWidget {
   const DrivingSchoolsScreen({super.key});
@@ -24,6 +25,8 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<DrivingSchoolProvider>(context, listen: false).loadDrivingSchools();
+      // Инициализируем геолокацию
+      Provider.of<LocationProvider>(context, listen: false).initializeLocation();
     });
   }
 
@@ -235,7 +238,12 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
   List<DrivingSchool> _getFilteredSchools(List<DrivingSchool> schools) {
     // Фильтруем автошколы только по поиску
     if (_searchQuery.isEmpty) {
-      return schools;
+      // Если поиск пустой, используем сортировку по расстоянию
+      return Provider.of<DrivingSchoolProvider>(context, listen: false)
+          .getSortedSchoolsByDistance(
+            Provider.of<LocationProvider>(context, listen: false).userLat,
+            Provider.of<LocationProvider>(context, listen: false).userLng,
+          );
     }
     
     final query = _searchQuery.toLowerCase().trim();
@@ -257,12 +265,56 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
     
     final result = uniqueFiltered.values.toList();
     
-    // Сортируем: оплаченные в топе
-    result.sort((a, b) {
-      if (a.payed && !b.payed) return -1;
-      if (!a.payed && b.payed) return 1;
-      return 0;
-    });
+    // Сортируем результаты по расстоянию
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    final userLat = locationProvider.userLat;
+    final userLng = locationProvider.userLng;
+    
+    if (userLat != null && userLng != null) {
+      // Сначала сортируем по payed статусу
+      result.sort((a, b) {
+        if (a.payed && !b.payed) return -1;
+        if (!a.payed && b.payed) return 1;
+        return 0;
+      });
+      
+      // Затем внутри каждой группы сортируем по расстоянию
+      final payedSchools = result.where((school) => school.payed).toList();
+      final nonPayedSchools = result.where((school) => !school.payed).toList();
+      
+      // Сортируем payed школы по расстоянию
+      payedSchools.sort((a, b) {
+        final aDistance = a.getDistanceToUser(userLat, userLng);
+        final bDistance = b.getDistanceToUser(userLat, userLng);
+        
+        if (aDistance != null && bDistance != null) {
+          return aDistance.compareTo(bDistance);
+        }
+        return 0;
+      });
+      
+      // Сортируем не payed школы по расстоянию
+      nonPayedSchools.sort((a, b) {
+        final aDistance = a.getDistanceToUser(userLat, userLng);
+        final bDistance = b.getDistanceToUser(userLat, userLng);
+        
+        if (aDistance != null && bDistance != null) {
+          return aDistance.compareTo(bDistance);
+        }
+        return 0;
+      });
+      
+      // Объединяем результаты: сначала payed, затем не payed
+      result.clear();
+      result.addAll([...payedSchools, ...nonPayedSchools]);
+    } else {
+      // Если геолокация недоступна, сортируем только по payed статусу
+      result.sort((a, b) {
+        if (a.payed && !b.payed) return -1;
+        if (!a.payed && b.payed) return 1;
+        return 0;
+      });
+    }
     
     print('Поиск: "$query" - найдено ${result.length} автошкол');
     print('Результаты поиска: ${result.map((s) => '${s.name} (ID: ${s.id})').toList()}');
@@ -379,6 +431,24 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
               
               const SizedBox(height: 8),
               
+              // Рейтинг автошколы
+              if (school.rating != null) ...[
+                Row(
+                  children: [
+                    Icon(Icons.star, color: Colors.amber, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${school.rating!.toStringAsFixed(1)} (${school.reviewsCount})',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+              
               Row(
                 children: [
                   Icon(Icons.category, color: Colors.grey.shade600, size: 16),
@@ -397,13 +467,13 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
               
               const SizedBox(height: 12),
               
-              // Цена и рейтинг
+              // Цена и расстояние
               Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF019863).withOpacity(0.1),
+                      color: const Color(0xFF019863).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -418,25 +488,35 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
                   
                   const Spacer(),
                   
-                  if (school.rating != null) ...[
-                    Icon(Icons.star, color: Colors.amber, size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      school.rating!.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '(${school.reviewsCount})',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                  // Расстояние до автошколы
+                  Consumer<LocationProvider>(
+                    builder: (context, locationProvider, child) {
+                      if (!locationProvider.isLocationEnabled) {
+                        return const SizedBox.shrink();
+                      }
+                      
+                      final distance = locationProvider.getDistanceTo(school.lat, school.lng);
+                      if (distance == null) {
+                        return const SizedBox.shrink();
+                      }
+                      
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.directions_walk, color: Colors.blue.shade600, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            locationProvider.formatDistance(school.lat, school.lng),
+                            style: TextStyle(
+                              color: Colors.blue.shade600,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ],
               ),
             ],
