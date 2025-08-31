@@ -138,41 +138,68 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
           ],
         ),
       ),
-      body: Consumer<DrivingSchoolProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF019863)),
-              ),
-            );
-          }
-
-          final filteredSchools = _getFilteredSchools(provider.schools);
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              // Обновляем данные при свайпе вниз
-              await Provider.of<DrivingSchoolProvider>(context, listen: false).loadDrivingSchools();
-            },
-            color: const Color(0xFF019863),
-            backgroundColor: Colors.white,
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: filteredSchools.length + (provider.hasMoreData && _searchQuery.isEmpty ? 1 : 0),
-              itemBuilder: (context, index) {
-                // Если это последний элемент и есть еще данные, показываем кнопку "Загрузить еще"
-                if (index == filteredSchools.length && provider.hasMoreData && _searchQuery.isEmpty) {
-                  return _buildLoadMoreButton(context, provider);
+      body: Column(
+        children: [
+          // Кнопки фильтров
+          Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _buildFilterButton('Категории', Icons.category, false),
+                const SizedBox(width: 12),
+                _buildFilterButton('Цена', Icons.attach_money, false),
+                const SizedBox(width: 12),
+                _buildFilterButton('Оценка', Icons.star, false),
+                const SizedBox(width: 12),
+                _buildFilterButton('Расстояние', Icons.location_on, false),
+                const SizedBox(width: 12),
+                _buildFilterButton('Города', Icons.location_city, false),
+              ],
+            ),
+          ),
+          
+          // Список автошкол
+          Expanded(
+            child: Consumer<DrivingSchoolProvider>(
+              builder: (context, provider, child) {
+                if (provider.isLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF019863)),
+                    ),
+                  );
                 }
-                
-                final school = filteredSchools[index];
-                return _buildSchoolCard(school);
+
+                final filteredSchools = _getFilteredSchools(provider.schools);
+
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    // Обновляем данные при свайпе вниз
+                    await Provider.of<DrivingSchoolProvider>(context, listen: false).loadDrivingSchools();
+                  },
+                  color: const Color(0xFF019863),
+                  backgroundColor: Colors.white,
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: filteredSchools.length + (provider.hasMoreData && _searchQuery.isEmpty ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      // Если это последний элемент и есть еще данные, показываем кнопку "Загрузить еще"
+                      if (index == filteredSchools.length && provider.hasMoreData && _searchQuery.isEmpty) {
+                        return _buildLoadMoreButton(context, provider);
+                      }
+                      
+                      final school = filteredSchools[index];
+                      return _buildSchoolCard(school);
+                    },
+                  ),
+                );
               },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -522,6 +549,46 @@ class _DrivingSchoolsScreenState extends State<DrivingSchoolsScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFilterButton(String text, IconData icon, bool isActive) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isActive ? const Color(0xFF019863) : Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(
+          color: isActive ? const Color(0xFF019863) : Colors.grey.shade300,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: isActive ? Colors.white : Colors.grey.shade600,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: isActive ? Colors.white : Colors.grey.shade600,
+            ),
+          ),
+        ],
       ),
     );
   }
